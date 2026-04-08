@@ -160,8 +160,12 @@ fun BankWithoutBordersApp() {
                 Button(onClick = {
                     val amount = transferAmount.toLongOrNull()
                     val currentWallet = wallet
-                    if (amount == null || amount <= 0 || currentWallet == null) {
-                        statusMessage = "Enter a valid amount and ensure wallet exists."
+                    if (currentWallet == null) {
+                        statusMessage = "Create wallet first."
+                        return@Button
+                    }
+                    if (amount == null || amount <= 0) {
+                        statusMessage = "Enter a valid positive transfer amount."
                         return@Button
                     }
                     when (val result = WalletEngine.transferInternal(currentWallet, recipient, amount)) {

@@ -14,16 +14,16 @@ This repository now includes:
 
 ## Documentation
 
-All platform documentation is under `/home/runner/work/benki/benki/docs`:
+All platform documentation is under `./docs`:
 
-- `/home/runner/work/benki/benki/docs/PRD.md`
-- `/home/runner/work/benki/benki/docs/SOLUTION_ARCHITECTURE.md`
-- `/home/runner/work/benki/benki/docs/COUNTRY_COMPLIANCE_MATRIX.md`
-- `/home/runner/work/benki/benki/docs/KYC_AML_POLICY_AND_RISK.md`
-- `/home/runner/work/benki/benki/docs/API_SPECIFICATION.md`
-- `/home/runner/work/benki/benki/docs/LEDGER_RECONCILIATION_SPEC.md`
-- `/home/runner/work/benki/benki/docs/SECURITY_AND_INCIDENT_RUNBOOK.md`
-- `/home/runner/work/benki/benki/docs/OPERATIONS_PLAYBOOK.md`
+- `./docs/PRD.md`
+- `./docs/SOLUTION_ARCHITECTURE.md`
+- `./docs/COUNTRY_COMPLIANCE_MATRIX.md`
+- `./docs/KYC_AML_POLICY_AND_RISK.md`
+- `./docs/API_SPECIFICATION.md`
+- `./docs/LEDGER_RECONCILIATION_SPEC.md`
+- `./docs/SECURITY_AND_INCIDENT_RUNBOOK.md`
+- `./docs/OPERATIONS_PLAYBOOK.md`
 
 ## App scope in this repository
 
