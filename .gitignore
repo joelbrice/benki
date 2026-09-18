@@ -13,3 +13,13 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Node / web / mobile
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.expo/
+.expo-shared/
+web-build/
