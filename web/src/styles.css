@@ -1,0 +1,147 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f4f6f5;
+  color: #10241f;
+}
+
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 24px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.app-header h1 {
+  font-size: 1.5rem;
+  margin: 0 0 4px;
+}
+
+.app-header p {
+  margin: 0;
+  color: #4a5a55;
+  font-size: 0.9rem;
+}
+
+.step-indicator {
+  display: flex;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #6a7a75;
+}
+
+.step-indicator span.active {
+  color: #0f7a5c;
+  font-weight: 600;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(16, 36, 31, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2a3a35;
+}
+
+input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #cdd7d3;
+  font-size: 1rem;
+  width: 100%;
+}
+
+button {
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #0f7a5c;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #9db8b0;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: #e4efe9;
+  color: #0f7a5c;
+}
+
+.balance {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.status-banner {
+  font-size: 0.85rem;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef3f1;
+  color: #2a3a35;
+}
+
+.status-banner.error {
+  background: #fdeceb;
+  color: #a12b1f;
+}
+
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tx-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f7faf9;
+  font-size: 0.85rem;
+}
+
+.tx-item .amount.credit {
+  color: #0f7a5c;
+}
+
+.tx-item .amount.debit {
+  color: #a12b1f;
+}
+
+.tier-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e4efe9;
+  color: #0f7a5c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: fit-content;
+}
