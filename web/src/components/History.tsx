@@ -1,11 +1,14 @@
-import type { WalletTransaction } from "@benki/shared";
+import { formatAmount, type WalletTransaction } from "@benki/shared";
 
 interface Props {
   transactions: WalletTransaction[];
+  currency: string;
   onBackToTransfer: () => void;
 }
 
-export function History({ transactions, onBackToTransfer }: Props) {
+const CREDIT_TYPES = new Set(["CASH_IN", "TRANSFER_IN"]);
+
+export function History({ transactions, currency, onBackToTransfer }: Props) {
   return (
     <div className="card">
       <h2>Transaction history</h2>
@@ -14,17 +17,17 @@ export function History({ transactions, onBackToTransfer }: Props) {
       ) : (
         <ul className="tx-list">
           {transactions.map((tx) => {
-            const isCredit = tx.type !== "TRANSFER_OUT";
+            const isCredit = CREDIT_TYPES.has(tx.type);
             return (
               <li key={`${tx.reference}-${tx.type}`} className="tx-item">
                 <div>
-                  <strong>{tx.type.replace("_", " ")}</strong>
+                  <strong>{tx.type.replace(/_/g, " ")}</strong>
                   <div>{tx.counterparty}</div>
                   <div>{tx.note}</div>
                 </div>
                 <span className={`amount ${isCredit ? "credit" : "debit"}`}>
                   {isCredit ? "+" : "-"}
-                  {tx.amountMinor.toLocaleString()}
+                  {formatAmount(tx.amountMinor, currency)}
                 </span>
               </li>
             );

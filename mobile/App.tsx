@@ -68,9 +68,9 @@ export default function App() {
           <Onboarding
             busy={busy}
             otpSent={otpSent}
-            onRequestOtp={async (phoneNumber, country) => {
+            onRequestOtp={async (phoneNumber, countryCode) => {
               await guarded(async () => {
-                const res = await api.sendOtp(phoneNumber, country);
+                const res = await api.sendOtp(phoneNumber, countryCode);
                 setPendingPhone(phoneNumber);
                 setOtpSent(true);
                 setStatus(`OTP sent. Dev shortcut — your code is ${res.devOtp}.`);
@@ -91,11 +91,18 @@ export default function App() {
         {step === "KYC" && user && token && (
           <Kyc
             busy={busy}
-            kycTier={user.kycTier}
-            onUpgrade={async (tier) => {
+            user={user}
+            onUpgradeTier1={async (nationalId) => {
               await guarded(async () => {
-                const res = await api.upgradeKyc(token, tier);
-                setUser({ ...user, kycTier: res.kycTier });
+                const res = await api.upgradeKycTier1(token, nationalId);
+                setUser({ ...user, kycTier: res.kycTier, nationalId });
+                setStatus(`Upgraded to ${res.kycTier}.`);
+              });
+            }}
+            onUpgradeTier2={async () => {
+              await guarded(async () => {
+                const res = await api.upgradeKycTier2(token, true);
+                setUser({ ...user, kycTier: res.kycTier, proofOfAddressConfirmed: true });
                 setStatus(`Upgraded to ${res.kycTier}.`);
               });
             }}
@@ -103,9 +110,10 @@ export default function App() {
           />
         )}
 
-        {step === "WALLET" && token && (
+        {step === "WALLET" && token && user && (
           <Wallet
             busy={busy}
+            user={user}
             wallet={wallet}
             onCreateWallet={async () => {
               await guarded(async () => {
@@ -114,23 +122,40 @@ export default function App() {
                 setStatus("Wallet created.");
               });
             }}
-            onCashIn={async (amountMinor) => {
+            onCashIn={async (amountMinor, agentId) => {
               if (!wallet) return;
               await guarded(async () => {
-                const res = await api.cashIn(token, wallet.walletId, amountMinor);
+                const res = await api.cashIn(token, wallet.walletId, { amountMinor, agentId });
                 setWallet(res.wallet);
                 setStatus("Cash-in complete.");
+              });
+            }}
+            onCashOut={async (amountMinor, agentId) => {
+              if (!wallet) return;
+              await guarded(async () => {
+                const res = await api.cashOut(token, wallet.walletId, { amountMinor, agentId });
+                setWallet(res.wallet);
+                setStatus("Cash-out complete.");
+              });
+            }}
+            onAirtimeTopUp={async (amountMinor, providerId) => {
+              if (!wallet) return;
+              await guarded(async () => {
+                const res = await api.airtimeTopUp(token, wallet.walletId, { amountMinor, providerId });
+                setWallet(res.wallet);
+                setStatus("Airtime top-up complete.");
               });
             }}
             onContinue={() => setStep("TRANSFER")}
           />
         )}
 
-        {step === "TRANSFER" && token && wallet && (
+        {step === "TRANSFER" && token && user && wallet && (
           <Transfer
             busy={busy}
+            user={user}
             wallet={wallet}
-            onSend={async (destinationPhoneNumber, amountMinor, note) => {
+            onSendInternal={async (destinationPhoneNumber, amountMinor, note) => {
               await guarded(async () => {
                 const res = await api.transferInternal(token, {
                   idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -145,11 +170,30 @@ export default function App() {
                 setStep("HISTORY");
               });
             }}
+            onSendMobileMoney={async (providerId, destinationPhoneNumber, amountMinor) => {
+              await guarded(async () => {
+                const res = await api.transferMobileMoney(token, {
+                  idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                  providerId,
+                  destinationPhoneNumber,
+                  amountMinor,
+                  currency: wallet.currency,
+                });
+                setWallet(res.wallet);
+                setStatus("Mobile money transfer sent.");
+                await refreshTransactions(wallet.walletId, token);
+                setStep("HISTORY");
+              });
+            }}
           />
         )}
 
-        {step === "HISTORY" && (
-          <History transactions={transactions} onBackToTransfer={() => setStep("TRANSFER")} />
+        {step === "HISTORY" && wallet && (
+          <History
+            transactions={transactions}
+            currency={wallet.currency}
+            onBackToTransfer={() => setStep("TRANSFER")}
+          />
         )}
       </ScrollView>
     </SafeAreaView>

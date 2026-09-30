@@ -73,6 +73,57 @@ export function TierBadge({ label }: { label: string }) {
   );
 }
 
+export function ChipSelect<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.chipRow}>
+        {options.map((o) => {
+          const active = o.id === value;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => onChange(o.id)}
+              style={[styles.chip, active && styles.chipActive]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+export function Checkbox({
+  label,
+  checked,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable onPress={onToggle} style={styles.checkboxRow}>
+      <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+        {checked && <Text style={styles.checkboxMark}>✓</Text>}
+      </View>
+      <Text style={styles.checkboxLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
@@ -124,4 +175,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   badgeText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  chipTextActive: { color: "white" },
+  checkboxRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxBoxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkboxMark: { color: "white", fontSize: 14, fontWeight: "700" },
+  checkboxLabel: { flex: 1, fontSize: 14, color: colors.text },
 });
