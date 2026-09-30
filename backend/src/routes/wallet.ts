@@ -1,12 +1,23 @@
 import { Router } from "express";
 import type {
+  AirtimeTopUpRequest,
   CashInRequest,
+  CashOutRequest,
+  WalletActionResponse,
   WalletBalancesResponse,
   WalletCreateResponse,
   WalletTransactionsResponse,
 } from "@benki/shared";
 import { requireAuth, type AuthedRequest } from "../middleware/auth";
-import { cashIn, createWallet } from "../ledger";
+import {
+  airtimeTopUp,
+  cashIn,
+  cashOut,
+  createWallet,
+  currencyForCountry,
+  requireAgent,
+  requireMobileMoneyProvider,
+} from "../ledger";
 import { transactionsByWallet, wallets } from "../store";
 import { badRequest, notFound } from "../errors";
 
@@ -20,7 +31,7 @@ walletRouter.post("/", (req: AuthedRequest, res) => {
     res.json(response);
     return;
   }
-  const wallet = createWallet(user.userId);
+  const wallet = createWallet(user.userId, currencyForCountry(user.countryCode));
   user.walletId = wallet.walletId; // same object referenced by both user indexes
   const response: WalletCreateResponse = { wallet };
   res.status(201).json(response);
@@ -56,7 +67,37 @@ walletRouter.post("/:walletId/cash-in", (req: AuthedRequest, res) => {
   if (!body.amountMinor || body.amountMinor <= 0) {
     throw badRequest("amountMinor must be a positive number");
   }
-  const tx = cashIn(wallet.walletId, body.amountMinor);
-  const response: WalletBalancesResponse = { wallet: wallets.get(wallet.walletId)! };
-  res.status(201).json({ ...response, transaction: tx });
+  if (!body.agentId?.trim()) throw badRequest("agentId is required");
+  const agent = requireAgent(req.user!.countryCode, body.agentId);
+
+  const tx = cashIn(wallet.walletId, body.amountMinor, agent.name);
+  const response: WalletActionResponse = { wallet: wallets.get(wallet.walletId)!, transaction: tx };
+  res.status(201).json(response);
+});
+
+walletRouter.post("/:walletId/cash-out", (req: AuthedRequest, res) => {
+  const wallet = walletForRequest(req);
+  const body = req.body as Partial<CashOutRequest>;
+  if (!body.amountMinor || body.amountMinor <= 0) {
+    throw badRequest("amountMinor must be a positive number");
+  }
+  if (!body.agentId?.trim()) throw badRequest("agentId is required");
+  const agent = requireAgent(req.user!.countryCode, body.agentId);
+
+  const response = cashOut(wallet, req.user!, body.amountMinor, agent.name);
+  res.status(201).json(response);
+});
+
+walletRouter.post("/:walletId/airtime-topup", (req: AuthedRequest, res) => {
+  const wallet = walletForRequest(req);
+  const body = req.body as Partial<AirtimeTopUpRequest>;
+  if (!body.amountMinor || body.amountMinor <= 0) {
+    throw badRequest("amountMinor must be a positive number");
+  }
+  if (!body.providerId?.trim()) throw badRequest("providerId is required");
+  const provider = requireMobileMoneyProvider(req.user!.countryCode, body.providerId);
+  const phoneNumber = body.phoneNumber?.trim() || req.user!.phoneNumber;
+
+  const response = airtimeTopUp(wallet, req.user!, body.amountMinor, provider.label, phoneNumber);
+  res.status(201).json(response);
 });

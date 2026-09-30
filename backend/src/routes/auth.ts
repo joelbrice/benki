@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "crypto";
 import { Router } from "express";
-import type { OtpSendRequest, OtpSendResponse, OtpVerifyRequest, OtpVerifyResponse } from "@benki/shared";
+import { COUNTRY_BY_CODE, type OtpSendRequest, type OtpSendResponse, type OtpVerifyRequest, type OtpVerifyResponse } from "@benki/shared";
 import { createUser, otpByPhone, tokens, usersByPhone } from "../store";
 import { badRequest, unauthorized } from "../errors";
 
@@ -11,13 +11,16 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 authRouter.post("/otp/send", (req, res) => {
   const body = req.body as Partial<OtpSendRequest>;
   if (!body.phoneNumber?.trim()) throw badRequest("phoneNumber is required");
-  if (!body.country?.trim()) throw badRequest("country is required");
+  if (!body.countryCode?.trim()) throw badRequest("countryCode is required");
+  if (!COUNTRY_BY_CODE[body.countryCode]) {
+    throw badRequest(`Unsupported country ${body.countryCode}`);
+  }
 
   const otp = String(randomInt(0, 1_000_000)).padStart(6, "0");
   otpByPhone.set(body.phoneNumber, { otp, expiresAt: Date.now() + OTP_TTL_MS });
 
   if (!usersByPhone.has(body.phoneNumber)) {
-    createUser(body.phoneNumber, body.country);
+    createUser(body.phoneNumber, body.countryCode);
   }
 
   const response: OtpSendResponse = { requestId: `OTP-${randomUUID()}`, devOtp: otp };

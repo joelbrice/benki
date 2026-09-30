@@ -20,13 +20,15 @@ export const tokens = new Map<string, string>(); // token -> userId
 export const otpByPhone = new Map<string, { otp: string; expiresAt: number }>();
 export const idempotencyCache = new Map<string, InternalTransferResponse>();
 
-export function createUser(phoneNumber: string, country: string): UserProfile {
+export function createUser(phoneNumber: string, countryCode: string): UserProfile {
   const user: UserProfile = {
     userId: `USER-${randomUUID()}`,
     phoneNumber,
-    country,
+    countryCode,
     kycTier: "TIER_0",
     walletId: null,
+    nationalId: null,
+    proofOfAddressConfirmed: false,
   };
   usersByPhone.set(phoneNumber, user);
   usersById.set(user.userId, user);

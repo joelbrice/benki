@@ -1,15 +1,16 @@
 import { useState } from "react";
+import { AFRICAN_COUNTRIES, DEFAULT_COUNTRY_CODE } from "@benki/shared";
 
 interface Props {
-  onRequestOtp: (phoneNumber: string, country: string) => Promise<void>;
+  onRequestOtp: (phoneNumber: string, countryCode: string) => Promise<void>;
   onVerify: (otp: string) => Promise<void>;
   otpSent: boolean;
   busy: boolean;
 }
 
 export function Onboarding({ onRequestOtp, onVerify, otpSent, busy }: Props) {
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [phoneNumber, setPhoneNumber] = useState("+221700000001");
-  const [country, setCountry] = useState("Senegal");
   const [otp, setOtp] = useState("");
 
   return (
@@ -18,16 +19,22 @@ export function Onboarding({ onRequestOtp, onVerify, otpSent, busy }: Props) {
       {!otpSent ? (
         <>
           <div>
+            <label htmlFor="country">Country</label>
+            <select id="country" value={countryCode} onChange={(e) => setCountryCode(e.target.value)}>
+              {AFRICAN_COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} ({c.currency}, {c.callingCode})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="phone">Phone number</label>
             <input id="phone" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
           </div>
-          <div>
-            <label htmlFor="country">Country</label>
-            <input id="country" value={country} onChange={(e) => setCountry(e.target.value)} />
-          </div>
           <button
-            disabled={busy || !phoneNumber.trim() || !country.trim()}
-            onClick={() => onRequestOtp(phoneNumber, country)}
+            disabled={busy || !phoneNumber.trim()}
+            onClick={() => onRequestOtp(phoneNumber, countryCode)}
           >
             Send OTP
           </button>

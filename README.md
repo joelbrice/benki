@@ -5,12 +5,14 @@ Benki is an African-focused "banking without borders" initiative aimed at enabli
 This repository now includes:
 
 - a **documentation blueprint** for product, architecture, compliance, and operations
-- a **thin vertical slice**, implemented three times against the same mock backend, all demonstrating:
-  - onboarding (phone + OTP)
-  - tiered KYC progression (with per-tier transfer limits)
-  - wallet creation and agent cash-in
-  - internal P2P transfer (ledger-style double-entry postings, idempotent)
-  - transaction history
+- a **thin vertical slice**, implemented three times against the same mock backend, modeled on five African markets from `docs/COUNTRY_COMPLIANCE_MATRIX.md` (Kenya, Ghana, Nigeria, Tanzania, Senegal), all demonstrating:
+  - country-first onboarding (phone + OTP, country/currency picker)
+  - tiered KYC progression — Tier 1 requires a national ID, Tier 2 requires proof-of-address/liveness confirmation, each tier's transfer limit set per country and currency
+  - wallet creation, and cash-in/cash-out through named local agents
+  - airtime/data top-up
+  - internal P2P transfer between Benki users (ledger-style double-entry postings, idempotent)
+  - outbound mobile money transfer (M-Pesa, MTN MoMo, Orange Money, Tigo Pesa, …) to non-Benki recipients
+  - transaction history, with amounts formatted per currency (e.g. XOF has no minor subdivision; KES/GHS/NGN/TZS use 2 decimals)
 
 ## Documentation
 
@@ -52,5 +54,5 @@ The backend is in-memory and resets on restart — it's a demo of the ledger mod
 
 ## App scope in this repository
 
-This is a vertical-slice implementation of the user journey and domain concepts across Android, web, and cross-platform mobile, backed by a mock API.
-Provider integrations (mobile money, banks, PayPal connectors), production KYC vendors, persistence, real authentication, and multi-country backend services are documented in `./docs` and intended for subsequent backend modules — see `docs/SOLUTION_ARCHITECTURE.md` for the target architecture this slice is a thin cut of.
+This is a vertical-slice implementation of the user journey and domain concepts across Android, web, and cross-platform mobile, backed by a mock API. The country/agent/mobile-money-provider catalog (`packages/shared/src/index.ts`) covers five illustrative markets — real coverage, licensing, and per-country limits are governed by `docs/COUNTRY_COMPLIANCE_MATRIX.md`, not this code.
+Real provider integrations (actual mobile money/bank rails, PayPal connectors), production KYC vendors, persistence, real authentication, bank transfers, cross-border corridors, and multi-country backend services are documented in `./docs` and intended for subsequent backend modules — see `docs/SOLUTION_ARCHITECTURE.md` for the target architecture this slice is a thin cut of.

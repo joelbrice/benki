@@ -62,12 +62,40 @@ label {
   color: #2a3a35;
 }
 
-input {
+input,
+select {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid #cdd7d3;
   font-size: 1rem;
   width: 100%;
+  background: white;
+  font-family: inherit;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.tabs button {
+  flex: 1;
+  background: #e4efe9;
+  color: #0f7a5c;
+}
+
+.tabs button.active {
+  background: #0f7a5c;
+  color: white;
+}
+
+.sub-card {
+  border: 1px solid #e4efe9;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 button {

@@ -1,14 +1,17 @@
 import { FlatList, StyleSheet, Text, View } from "react-native";
-import type { WalletTransaction } from "../types";
+import { formatAmount, type WalletTransaction } from "../types";
 import { Card, SecondaryButton } from "./ui";
 import { colors } from "../theme/colors";
 
 interface Props {
   transactions: WalletTransaction[];
+  currency: string;
   onBackToTransfer: () => void;
 }
 
-export function History({ transactions, onBackToTransfer }: Props) {
+const CREDIT_TYPES = new Set(["CASH_IN", "TRANSFER_IN"]);
+
+export function History({ transactions, currency, onBackToTransfer }: Props) {
   return (
     <Card>
       <Text style={{ fontSize: 18, fontWeight: "700" }}>Transaction history</Text>
@@ -21,17 +24,17 @@ export function History({ transactions, onBackToTransfer }: Props) {
           scrollEnabled={false}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           renderItem={({ item }) => {
-            const isCredit = item.type !== "TRANSFER_OUT";
+            const isCredit = CREDIT_TYPES.has(item.type);
             return (
               <View style={styles.row}>
                 <View>
-                  <Text style={styles.type}>{item.type.replace("_", " ")}</Text>
+                  <Text style={styles.type}>{item.type.replace(/_/g, " ")}</Text>
                   <Text>{item.counterparty}</Text>
                   <Text>{item.note}</Text>
                 </View>
                 <Text style={[styles.amount, { color: isCredit ? colors.primary : colors.errorText }]}>
                   {isCredit ? "+" : "-"}
-                  {item.amountMinor.toLocaleString()}
+                  {formatAmount(item.amountMinor, currency)}
                 </Text>
               </View>
             );
