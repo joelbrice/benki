@@ -1,40 +1,36 @@
-import cors from "cors";
-import express, { type NextFunction, type Request, type Response } from "express";
-import { authRouter } from "./routes/auth";
-import { kycRouter } from "./routes/kyc";
-import { walletRouter } from "./routes/wallet";
-import { transfersRouter } from "./routes/transfers";
-import { ApiError } from "./errors";
+import { createApp } from "./app";
+import { isUsingDevSecrets } from "./config";
+import { createContext } from "./context";
+import { seedMarkets } from "./services/seed";
+import { startSettlementWorker } from "./services/settlement";
+import { DEMO_STAFF } from "./services/staff";
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const ctx = createContext({ silent: false });
+seedMarkets(ctx);
 
-app.get("/v1/health", (_req, res) => res.json({ status: "ok" }));
+if (isUsingDevSecrets(ctx.config)) {
+  ctx.log.warn("Running with development secrets — never use this configuration with real customers or money");
+}
+if (ctx.config.seedDemoStaff) {
+  ctx.log.warn("Demo back-office accounts are enabled", {
+    usernames: DEMO_STAFF.map((s) => `${s.username} (${s.role})`),
+    passwordEnv: "BENKI_DEMO_STAFF_PASSWORD",
+  });
+}
 
-app.use("/v1/auth", authRouter);
-app.use("/v1/kyc", kycRouter);
-app.use("/v1/wallets", walletRouter);
-app.use("/v1/transfers", transfersRouter);
-
-// All route handlers in this app are synchronous, so Express 4 routes thrown
-// ApiErrors straight to this handler without extra wrapping.
-app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
-  if (res.headersSent) {
-    next(err);
-    return;
-  }
-  if (err instanceof ApiError) {
-    res.status(err.status).json(err.toBody());
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.error(err);
-  res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Unexpected server error" } });
+const stopWorker = startSettlementWorker(ctx);
+const server = createApp(ctx).listen(ctx.config.port, () => {
+  ctx.log.info("Benki API listening", { port: ctx.config.port, db: ctx.config.dbPath, env: ctx.config.env });
 });
 
-const port = Number(process.env.PORT ?? 4000);
-app.listen(port, () => {
-  // eslint-disable-next-line no-console
-  console.log(`Benki mock API listening on http://localhost:${port}`);
-});
+function shutdown(signal: string) {
+  ctx.log.info("shutting down", { signal });
+  stopWorker();
+  server.close(() => {
+    ctx.db.close();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

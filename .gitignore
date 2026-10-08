@@ -23,3 +23,9 @@ dist/
 .expo/
 .expo-shared/
 web-build/
+
+# Local SQLite databases
+data/
+*.db
+*.db-wal
+*.db-shm
