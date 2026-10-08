@@ -20,6 +20,8 @@ export const OUTFLOW_TYPES: TransactionType[] = [
   "BILL_PAYMENT",
   "MERCHANT_PAYMENT",
   "CROSS_BORDER",
+  "BANK_TRANSFER",
+  "GROUP_CONTRIBUTION",
 ];
 
 /** Attempted value counts against limits even while pending or held for review. */

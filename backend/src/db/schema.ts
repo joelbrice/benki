@@ -3,7 +3,6 @@
 // convention (docs/LEDGER_RECONCILIATION_SPEC.md: "No direct balance mutation
 // without postings", immutable postings, full audit logs).
 
-export const SCHEMA_VERSION = 1;
 
 export const SCHEMA_V1 = `
 CREATE TABLE IF NOT EXISTS users (
@@ -347,3 +346,65 @@ CREATE TABLE IF NOT EXISTS recon_exceptions (
   created_at TEXT NOT NULL
 );
 `;
+
+// v2: nano-loans and group savings.
+export const SCHEMA_V2 = `
+CREATE TABLE IF NOT EXISTS loans (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id),
+  currency TEXT NOT NULL,
+  principal_minor INTEGER NOT NULL CHECK (principal_minor > 0),
+  fee_minor INTEGER NOT NULL CHECK (fee_minor >= 0),
+  repaid_minor INTEGER NOT NULL DEFAULT 0 CHECK (repaid_minor >= 0),
+  disbursement_tx_id TEXT,
+  disbursed_at TEXT NOT NULL,
+  due_at TEXT NOT NULL,
+  repaid_at TEXT,
+  CHECK (repaid_minor <= principal_minor + fee_minor)
+);
+CREATE INDEX IF NOT EXISTS idx_loans_user ON loans (user_id);
+
+CREATE TABLE IF NOT EXISTS savings_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  country_code TEXT NOT NULL,
+  account_id TEXT NOT NULL REFERENCES accounts (id),
+  created_by TEXT NOT NULL REFERENCES users (id),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id TEXT NOT NULL REFERENCES savings_groups (id),
+  user_id TEXT NOT NULL REFERENCES users (id),
+  role TEXT NOT NULL CHECK (role IN ('ADMIN', 'MEMBER')),
+  joined_at TEXT NOT NULL,
+  PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS group_payout_requests (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL REFERENCES savings_groups (id),
+  recipient_user_id TEXT NOT NULL REFERENCES users (id),
+  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('PENDING', 'EXECUTED', 'REJECTED')),
+  requested_by TEXT NOT NULL REFERENCES users (id),
+  created_at TEXT NOT NULL,
+  decided_at TEXT,
+  transaction_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS group_payout_votes (
+  request_id TEXT NOT NULL REFERENCES group_payout_requests (id),
+  user_id TEXT NOT NULL REFERENCES users (id),
+  vote TEXT NOT NULL CHECK (vote IN ('APPROVE', 'REJECT')),
+  voted_at TEXT NOT NULL,
+  PRIMARY KEY (request_id, user_id)
+);
+`;
+
+/** Ordered, append-only list of migrations. Never edit one that has shipped. */
+export const MIGRATIONS: { version: number; sql: string }[] = [
+  { version: 1, sql: SCHEMA_V1 },
+  { version: 2, sql: SCHEMA_V2 },
+];

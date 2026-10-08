@@ -32,7 +32,12 @@ export interface ProviderAdapter {
   fetchStatus(providerRef: string): Promise<ProviderStatus>;
   handleWebhook(payload: unknown): WebhookEvent;
   reconcileBatch(currency: string): Promise<ProviderRecord[]>;
+  /** Bank rails: resolve the account holder's name before money moves (null = no such account). */
+  nameEnquiry?(accountNumber: string): Promise<string | null>;
 }
+
+/** Transaction types settled asynchronously over an external rail. */
+export const EXTERNAL_RAIL_TYPES = ["MOBILE_MONEY_PAYOUT", "BANK_TRANSFER"] as const;
 
 export class ProviderUnavailableError extends Error {}
 
@@ -46,8 +51,19 @@ interface RecordRow {
   created_at: string;
 }
 
+const SANDBOX_ACCOUNT_NAMES = [
+  "Amara Okafor",
+  "Kwabena Mensah",
+  "Fatoumata Sow",
+  "Baraka Mwangi",
+  "Zawadi Mushi",
+  "Chinedu Eze",
+  "Aïssatou Ndiaye",
+  "Esi Owusu",
+];
+
 /**
- * Sandbox mobile money connector. Like card-network test numbers, the last
+ * Sandbox rail connector (mobile money and banks). Like card-network test numbers, the last
  * four digits of the destination select an outcome so every failure path —
  * including each reconciliation break category — can be exercised on demand:
  *   ...4444  provider outage at initiation (nothing is debited)
@@ -57,7 +73,7 @@ interface RecordRow {
  *   ...8888  provider books the settlement twice             → DUPLICATE_SETTLEMENT_ENTRY
  *   anything else completes after the configured latency.
  */
-export class SandboxMobileMoneyAdapter implements ProviderAdapter {
+export class SandboxRailAdapter implements ProviderAdapter {
   constructor(
     readonly id: string,
     private readonly db: Db,
@@ -69,6 +85,13 @@ export class SandboxMobileMoneyAdapter implements ProviderAdapter {
 
   async quote() {
     return { providerFeeMinor: 0 };
+  }
+
+  /** Sandbox: accounts ending in 404 don't exist; others resolve to a stable name. */
+  async nameEnquiry(accountNumber: string): Promise<string | null> {
+    if (accountNumber.endsWith("404")) return null;
+    const hash = [...accountNumber].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+    return SANDBOX_ACCOUNT_NAMES[hash % SANDBOX_ACCOUNT_NAMES.length];
   }
 
   async initiateTransfer(request: { reference: string; amountMinor: number; currency: string; destination: string }) {

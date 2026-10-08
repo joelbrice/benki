@@ -5,6 +5,7 @@ import { correlationId, errorHandler, rateLimit, requestLogger, securityHeaders 
 import { notFound } from "./lib/errors";
 import { adminRoutes, reconciliationRoutes } from "./routes/admin";
 import { customerRoutes } from "./routes/customer";
+import { ussdRoutes } from "./routes/ussd";
 import { webhookRoutes } from "./routes/webhooks";
 
 export function createApp(ctx: AppContext): Express {
@@ -30,6 +31,8 @@ export function createApp(ctx: AppContext): Express {
       },
     }),
   );
+  // The USSD aggregator funnels every caller through one IP; it is limited per phone instead.
+  app.use("/v1/ussd", ussdRoutes(ctx));
   app.use(rateLimit(ctx, "global", 300, 60_000));
 
   app.get("/v1/health", (_req, res) => {

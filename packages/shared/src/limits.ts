@@ -58,7 +58,37 @@ export const MIN_TIER_FOR_SERVICE = {
   AIRTIME: "TIER_0",
   P2P: "TIER_0",
   SAVINGS: "TIER_1",
+  BANK_TRANSFER: "TIER_1",
+  GROUPS: "TIER_1",
+  LOANS: "TIER_1",
 } as const satisfies Record<string, KycTier>;
+
+/**
+ * Nano-loan product. Flat fee for a fixed term, fully disclosed (with the
+ * annualized equivalent) before the customer accepts. Eligibility and the
+ * maximum principal are computed server-side from KYC tier and history.
+ */
+export const LOAN_PRODUCT = {
+  feeBps: 500,
+  termDays: 30,
+  /** Max principal as a share of the tier's single-payment limit. */
+  maxShareOfPerTransactionLimit: 0.5,
+  /** Max principal as a share of the last 90 days' completed inflows. */
+  maxShareOfRecentInflows: 0.3,
+  minCompletedInflows: 3,
+  minPrincipalMajor: 10,
+} as const;
+
+export function loanFeeMinor(principalMinor: number): number {
+  return Math.ceil((principalMinor * LOAN_PRODUCT.feeBps) / 10_000);
+}
+
+/** Simple annualized rate of the flat fee, for disclosure. */
+export function loanAprPercent(): number {
+  return Math.round((LOAN_PRODUCT.feeBps / 100) * (365 / LOAN_PRODUCT.termDays) * 10) / 10;
+}
+
+export const MAX_GROUP_MEMBERS = 30;
 
 const TIER_RANK: Record<KycTier, number> = { TIER_0: 0, TIER_1: 1, TIER_2: 2 };
 

@@ -5,7 +5,9 @@ import { all, run } from "../db/query";
 import type { TransactionRow } from "../db/rows";
 import { newId } from "../lib/ids";
 import { audit } from "./audit";
-import type { ProviderRecord } from "./providers";
+import { EXTERNAL_RAIL_TYPES, type ProviderRecord } from "./providers";
+
+const RAIL_TYPES = EXTERNAL_RAIL_TYPES.map((t) => `'${t}'`).join(",");
 
 interface ExceptionDraft {
   category: ReconciliationBreak;
@@ -33,7 +35,7 @@ export async function runReconciliation(ctx: AppContext, actorId: string | null)
   for (const [providerId, adapter] of ctx.providers) {
     const currencies = all<{ currency: string }>(
       ctx.db,
-      `SELECT currency FROM transactions WHERE provider_id = ? AND type = 'MOBILE_MONEY_PAYOUT' AND provider_ref IS NOT NULL
+      `SELECT currency FROM transactions WHERE provider_id = ? AND type IN (${RAIL_TYPES}) AND provider_ref IS NOT NULL
        UNION SELECT currency FROM provider_records WHERE provider_id = ?`,
       providerId,
       providerId,
@@ -43,7 +45,7 @@ export async function runReconciliation(ctx: AppContext, actorId: string | null)
       const records = await adapter.reconcileBatch(currency);
       const internal = all<TransactionRow>(
         ctx.db,
-        "SELECT * FROM transactions WHERE provider_id = ? AND currency = ? AND type = 'MOBILE_MONEY_PAYOUT' AND provider_ref IS NOT NULL",
+        `SELECT * FROM transactions WHERE provider_id = ? AND currency = ? AND type IN (${RAIL_TYPES}) AND provider_ref IS NOT NULL`,
         providerId,
         currency,
       );

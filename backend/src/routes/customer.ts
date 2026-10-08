@@ -7,6 +7,7 @@ import {
   PURPOSE_CODES,
   type FeeBearingType,
   type FeeQuote,
+  type NameEnquiryResponse,
 } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -14,19 +15,20 @@ import { all, run } from "../db/query";
 import type { TransactionRow, UserRow } from "../db/rows";
 import { asyncHandler, rateLimit } from "../http/middleware";
 import { deviceIdOf, bearerToken, requireUser } from "../http/auth";
-import { badRequest, complianceBlock, notFound, providerUnavailable } from "../lib/errors";
+import { badRequest, conflict, notFound, providerUnavailable } from "../lib/errors";
 import { amountMinor, e164Phone, idempotencyKey, note, parse, pin } from "../lib/validation";
 import { createCustomerAccount } from "../services/accounts";
 import { audit } from "../services/audit";
 import { logout, requestOtp, verifyOtp } from "../services/auth";
 import { openDispute, listUserDisputes } from "../services/disputes";
 import { createFxQuote } from "../services/fx";
-import { claimIdempotencyKey, completeIdempotencyKey, requestHashOf, type IdempotencyHandle } from "../services/idempotency";
 import { upgradeTier1, upgradeTier2 } from "../services/kyc";
 import { currencyOf, limitsUsage } from "../services/limits";
 import { listNotifications, markNotificationsRead } from "../services/notifications";
 import {
+  bankFor,
   draftAirtime,
+  draftBankTransfer,
   draftBill,
   draftCashIn,
   draftCashOut,
@@ -36,76 +38,57 @@ import {
   draftP2P,
   draftSavings,
   getTransaction,
-  paymentResponse,
-  submitPayment,
+  normalizeBankAccount,
   type PaymentDraft,
 } from "../services/payments";
+import { addMember, createGroup, draftContribution, getGroup, listGroups, requestPayout, votePayout } from "../services/groups";
+import { applyRepayment, draftLoanDisbursement, draftLoanRepayment, listLoans, loanOffer, recordLoan } from "../services/loans";
 import { changePin, setPin, verifyPin } from "../services/pin";
+import { runPayment, type PaymentRequest } from "../services/pipeline";
 import { createVault, listVaults } from "../services/savings";
-import { dispatchPayout } from "../services/settlement";
 import { statementCsv } from "../services/statements";
 import { assertActive, getUser, toUserProfile, walletView } from "../services/users";
 import { toUserTransaction } from "../services/views";
 
-/**
- * Shared pipeline for every money movement: PIN → idempotency claim →
- * controls + ledger (one DB transaction) → external dispatch if needed.
- */
+/** HTTP adapter over the channel-agnostic payment pipeline. */
 async function executePayment(
   ctx: AppContext,
   req: Request,
   res: Response,
   operation: string,
   body: { idempotencyKey: string; pin?: string } & Record<string, unknown>,
-  options: { requirePin: boolean },
+  options: { requirePin: boolean; afterPosted?: PaymentRequest["afterPosted"] },
   build: (user: UserRow, deviceId: string | null) => PaymentDraft,
 ) {
-  const user = req.user!;
-  if (options.requirePin) verifyPin(ctx, user, body.pin);
-  const handle: IdempotencyHandle = {
-    scope: `${user.id}:${operation}`,
-    key: body.idempotencyKey,
-    requestHash: requestHashOf({ ...body, operation, path: req.path }),
-  };
-  const deviceId = req.session?.device_id ?? null;
-
-  type Phase1 =
-    | { kind: "replay"; status: number; body: unknown }
-    | { kind: "outcome"; outcome: ReturnType<typeof submitPayment>; responseBody: unknown };
-  const phase1 = withTx(ctx.db, (): Phase1 => {
-    const claim = claimIdempotencyKey(ctx, handle);
-    if (claim.replay) return { kind: "replay", status: claim.status, body: claim.body };
-    const outcome = submitPayment(ctx, build(getUser(ctx, user.id)!, deviceId));
-    const responseBody = outcome.blocked
-      ? complianceBlock().toBody()
-      : paymentResponse(ctx, outcome.tx, user.id, outcome.message);
-    if (!outcome.needsDispatch) completeIdempotencyKey(ctx, handle, outcome.status, responseBody);
-    return { kind: "outcome", outcome, responseBody };
+  const result = await runPayment(ctx, {
+    user: req.user!,
+    deviceId: req.session?.device_id ?? null,
+    operation,
+    body: { ...body, path: req.path },
+    requirePin: options.requirePin,
+    build,
+    afterPosted: options.afterPosted,
   });
+  res.status(result.status).json(result.body);
+}
 
-  if (phase1.kind === "replay") {
-    res.status(phase1.status).json(phase1.body);
-    return;
-  }
-  const { outcome } = phase1;
-  if (!outcome.needsDispatch) {
-    res.status(outcome.status).json(phase1.responseBody);
-    return;
-  }
+function normalizeName(name: string): string {
+  return name.normalize("NFKC").trim().replace(/\s+/g, " ").toLowerCase();
+}
 
-  const tx = await dispatchPayout(ctx, outcome.tx.id);
-  if (tx.status === "FAILED") {
-    const failure = providerUnavailable(
-      `${tx.counterparty_label} couldn't be reached and your money has been refunded. Please try again later.`,
-    ).toBody();
-    completeIdempotencyKey(ctx, handle, 502, failure);
-    res.status(502).json(failure);
-    return;
+async function resolveBankAccount(ctx: AppContext, user: UserRow, bankId: string, accountNumber: string): Promise<NameEnquiryResponse> {
+  const bank = bankFor(user, bankId);
+  const normalized = normalizeBankAccount(bank, accountNumber);
+  const adapter = ctx.providers.get(bank.id);
+  if (!adapter?.nameEnquiry) throw providerUnavailable("This bank isn't available right now. Please try again later.");
+  let name: string | null;
+  try {
+    name = await adapter.nameEnquiry(normalized);
+  } catch {
+    throw providerUnavailable(`${bank.name} isn't responding right now. Please try again later.`);
   }
-  const message = tx.status === "COMPLETED" ? `Delivered to ${tx.counterparty_label}.` : outcome.message;
-  const success = paymentResponse(ctx, tx, user.id, message);
-  completeIdempotencyKey(ctx, handle, 201, success);
-  res.status(201).json(success);
+  if (!name) throw notFound(`${bank.name} couldn't find that account number. Check it and try again.`);
+  return { bankId: bank.id, accountNumber: normalized, accountName: name };
 }
 
 function requireOwnWallet(req: Request): string {
@@ -300,6 +283,30 @@ export function customerRoutes(ctx: AppContext): Router {
       await executePayment(ctx, req, res, "cross-border", body, { requirePin: true }, (u, d) => draftCrossBorder(ctx, u, body, d));
     }),
   );
+  root.post("/transfers/bank/name-enquiry", authed, rateLimit(ctx, "name-enquiry", 20, 60_000), asyncHandler(async (req, res) => {
+    const body = parse(z.object({ bankId: z.string(), accountNumber: z.string().max(34) }), req.body);
+    res.json(await resolveBankAccount(ctx, req.user!, body.bankId, body.accountNumber));
+  }));
+  root.post(
+    "/transfers/bank",
+    authed,
+    moneyLimiter,
+    asyncHandler(async (req, res) => {
+      const body = parse(
+        z.object({ idempotencyKey, pin, bankId: z.string(), accountNumber: z.string().max(34), accountName: z.string().max(100), amountMinor, note }),
+        req.body,
+      );
+      // Re-run name enquiry at send time: the customer must have confirmed the
+      // name the bank holds *now*, so a typo'd or recycled account is caught.
+      const resolved = await resolveBankAccount(ctx, req.user!, body.bankId, body.accountNumber);
+      if (normalizeName(resolved.accountName) !== normalizeName(body.accountName)) {
+        throw conflict("The account name has changed since you checked it. Look it up again and confirm.");
+      }
+      await executePayment(ctx, req, res, "bank-transfer", body, { requirePin: true }, (u, d) =>
+        draftBankTransfer(ctx, u, { ...body, resolvedName: resolved.accountName }, d),
+      );
+    }),
+  );
   root.get("/transfers/:transactionId", authed, (req, res) => {
     const tx = getTransaction(ctx, req.params.transactionId);
     const userId = req.user!.id;
@@ -349,6 +356,93 @@ export function customerRoutes(ctx: AppContext): Router {
       }),
     );
   }
+
+  // --- Nano-loans -------------------------------------------------------------------
+  root.get("/loans/offer", authed, (req, res) => {
+    res.json(loanOffer(ctx, req.user!));
+  });
+  root.get("/loans", authed, (req, res) => {
+    res.json({ loans: listLoans(ctx, req.user!.id) });
+  });
+  root.post(
+    "/loans",
+    authed,
+    rateLimit(ctx, "loans", 5, 60_000),
+    asyncHandler(async (req, res) => {
+      const body = parse(
+        z.object({
+          idempotencyKey,
+          pin,
+          principalMinor: amountMinor,
+          acceptTerms: z.literal(true, { errorMap: () => ({ message: "you must accept the loan terms" }) }),
+        }),
+        req.body,
+      );
+      await executePayment(
+        ctx,
+        req,
+        res,
+        "loan",
+        body,
+        { requirePin: true, afterPosted: (tx) => ({ loan: recordLoan(ctx, tx) }) },
+        (u) => draftLoanDisbursement(ctx, u, body.principalMinor),
+      );
+    }),
+  );
+  root.post(
+    "/loans/:loanId/repay",
+    authed,
+    moneyLimiter,
+    asyncHandler(async (req, res) => {
+      const body = parse(z.object({ idempotencyKey, pin, amountMinor }), req.body);
+      await executePayment(
+        ctx,
+        req,
+        res,
+        "loan-repay",
+        { ...body, loanId: req.params.loanId },
+        { requirePin: true, afterPosted: (tx) => ({ loan: applyRepayment(ctx, tx) }) },
+        (u) => draftLoanRepayment(ctx, u, req.params.loanId, body.amountMinor),
+      );
+    }),
+  );
+
+  // --- Savings groups (chama / tontine / susu) ------------------------------------------
+  root.get("/groups", authed, (req, res) => {
+    res.json({ groups: listGroups(ctx, req.user!.id) });
+  });
+  root.post("/groups", authed, rateLimit(ctx, "groups", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ name: z.string() }), req.body);
+    res.status(201).json({ group: createGroup(ctx, getUser(ctx, req.user!.id)!, body.name) });
+  });
+  root.get("/groups/:groupId", authed, (req, res) => {
+    res.json({ group: getGroup(ctx, req.user!.id, req.params.groupId) });
+  });
+  root.post("/groups/:groupId/members", authed, rateLimit(ctx, "groups", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ phoneNumber: e164Phone }), req.body);
+    res.status(201).json({ group: addMember(ctx, req.user!, req.params.groupId, body.phoneNumber) });
+  });
+  root.post(
+    "/groups/:groupId/contribute",
+    authed,
+    moneyLimiter,
+    asyncHandler(async (req, res) => {
+      const body = parse(z.object({ idempotencyKey, pin, amountMinor }), req.body);
+      await executePayment(ctx, req, res, "group-contribution", { ...body, groupId: req.params.groupId }, { requirePin: true }, (u, d) =>
+        draftContribution(ctx, u, req.params.groupId, body.amountMinor, d),
+      );
+    }),
+  );
+  root.post("/groups/:groupId/payouts", authed, rateLimit(ctx, "groups", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ pin, recipientUserId: z.string(), amountMinor, reason: z.string() }), req.body);
+    verifyPin(ctx, req.user!, body.pin);
+    res.status(201).json({ group: requestPayout(ctx, req.user!, req.params.groupId, body) });
+  });
+  root.post("/groups/:groupId/payouts/:requestId/vote", authed, rateLimit(ctx, "groups", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ pin, approve: z.boolean() }), req.body);
+    verifyPin(ctx, req.user!, body.pin);
+    res.json({ group: votePayout(ctx, req.user!, req.params.groupId, req.params.requestId, body.approve) });
+  });
 
   // --- Disputes -------------------------------------------------------------------
   root.get("/disputes", authed, (req, res) => {

@@ -9,6 +9,10 @@ export interface AppConfig {
   /** 32-byte key for field-level encryption and keyed hashing of identifiers. */
   dataKey: Buffer;
   webhookSecret: string;
+  /** Shared secret the USSD aggregator presents on every callback. */
+  ussdGatewayKey: string;
+  /** Unauthenticated in-browser USSD simulator — development only. */
+  ussdSimulator: boolean;
   exposeDevOtp: boolean;
   corsOrigins: string[];
   rateLimitEnabled: boolean;
@@ -25,6 +29,7 @@ export interface AppConfig {
 
 const DEV_DATA_KEY = createHash("sha256").update("benki-development-only-data-key").digest();
 const DEV_WEBHOOK_SECRET = "benki-development-only-webhook-secret";
+const DEV_USSD_GATEWAY_KEY = "benki-development-only-ussd-key";
 
 function bool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
@@ -49,6 +54,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env, overrides: Part
     dbPath: env.BENKI_DB_PATH ?? (environment === "test" ? ":memory:" : "./data/benki.db"),
     dataKey,
     webhookSecret: env.BENKI_WEBHOOK_SECRET ?? DEV_WEBHOOK_SECRET,
+    ussdGatewayKey: env.BENKI_USSD_GATEWAY_KEY ?? DEV_USSD_GATEWAY_KEY,
+    ussdSimulator: bool(env.BENKI_USSD_SIMULATOR, !isProd),
     exposeDevOtp: bool(env.BENKI_EXPOSE_DEV_OTP, !isProd),
     corsOrigins: (env.BENKI_CORS_ORIGINS ?? "http://localhost:5173,http://localhost:4173,http://localhost:8081")
       .split(",")
@@ -78,6 +85,8 @@ export function assertSafeConfig(config: AppConfig) {
   const problems: string[] = [];
   if (config.dataKey.equals(DEV_DATA_KEY)) problems.push("BENKI_DATA_KEY is not set");
   if (config.webhookSecret === DEV_WEBHOOK_SECRET) problems.push("BENKI_WEBHOOK_SECRET is not set");
+  if (config.ussdGatewayKey === DEV_USSD_GATEWAY_KEY) problems.push("BENKI_USSD_GATEWAY_KEY is not set");
+  if (config.ussdSimulator) problems.push("BENKI_USSD_SIMULATOR must be off");
   if (config.exposeDevOtp) problems.push("BENKI_EXPOSE_DEV_OTP must be off");
   if (config.seedDemoStaff) problems.push("BENKI_SEED_DEMO_STAFF must be off");
   if (config.corsOrigins.some((o) => o.includes("localhost"))) problems.push("BENKI_CORS_ORIGINS includes localhost");

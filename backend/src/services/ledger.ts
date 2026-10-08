@@ -156,7 +156,7 @@ export function entriesForTransaction(ctx: AppContext, transactionId: string) {
   );
 }
 
-const CUSTOMER_KINDS = ["WALLET", "VAULT", "MERCHANT_WALLET", "AGENT_FLOAT"];
+const CUSTOMER_KINDS = ["WALLET", "VAULT", "MERCHANT_WALLET", "AGENT_FLOAT", "GROUP_POOL"];
 
 export function trialBalance(ctx: AppContext): TrialBalance {
   const currencies = all<{ currency: string; debits: number; credits: number }>(

@@ -77,6 +77,11 @@ export const TYPE_LABEL: Record<TransactionType, string> = {
   CROSS_BORDER: "International transfer",
   SAVINGS_DEPOSIT: "To savings",
   SAVINGS_WITHDRAWAL: "From savings",
+  BANK_TRANSFER: "Bank transfer",
+  LOAN_DISBURSEMENT: "Loan received",
+  LOAN_REPAYMENT: "Loan repayment",
+  GROUP_CONTRIBUTION: "Group contribution",
+  GROUP_PAYOUT: "Group payout",
   REVERSAL: "Reversal",
   ADJUSTMENT: "Adjustment",
 };

@@ -186,6 +186,8 @@ export interface AdminDashboard {
   pendingApprovals: number;
   pendingProviderPayouts: number;
   openDisputes: number;
+  savingsGroups: number;
+  loanBook: { currency: string; activeLoans: number; overdueLoans: number; outstandingMinor: number }[];
   volumeByType: { type: TransactionType; currency: string; count: number; amountMinor: number }[];
   statusCounts: { status: TransactionStatus; count: number }[];
 }

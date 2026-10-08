@@ -46,11 +46,17 @@ export function requestLogger(ctx: AppContext): RequestHandler {
 }
 
 /** Fixed-window limiter keyed by client IP (and by user once authenticated). */
-export function rateLimit(ctx: AppContext, name: string, max: number, windowMs: number): RequestHandler {
+export function rateLimit(
+  ctx: AppContext,
+  name: string,
+  max: number,
+  windowMs: number,
+  keyOf: (req: Request) => string | undefined = (req) => req.user?.id ?? req.staff?.id ?? req.ip,
+): RequestHandler {
   const hits = new Map<string, { count: number; resetAt: number }>();
   return (req, res, next) => {
     if (!ctx.config.rateLimitEnabled) return next();
-    const key = `${name}:${req.user?.id ?? req.staff?.id ?? req.ip}`;
+    const key = `${name}:${keyOf(req)}`;
     const now = Date.now();
     const bucket = hits.get(key);
     if (!bucket || bucket.resetAt <= now) {

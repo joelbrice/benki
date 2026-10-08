@@ -1,11 +1,13 @@
 import {
   COUNTRY_BY_CODE,
   customerFeeMinor,
+  banksFor,
   findMerchant,
   formatAmount,
   merchantFeeMinor,
   MIN_TIER_FOR_SERVICE,
   tierAtLeast,
+  type Bank,
   type KycTier,
   type PaymentResponse,
   type RuleHit,
@@ -24,6 +26,7 @@ import { closeAlertsForTransaction, raiseAlert } from "./compliance";
 import { availableOf, entriesForTransaction, placeHold, postEntry, resolveHolds, reverseEntry, type PostingInput } from "./ledger";
 import { currencyOf, enforceHoldingsCap, enforceOutflowLimits } from "./limits";
 import { notify } from "./notifications";
+import { EXTERNAL_RAIL_TYPES } from "./providers";
 import { assessRisk } from "./risk";
 import { assertActive, getUser, getUserByPhone, maskPhone, touchActivity, walletView } from "./users";
 import { toUserTransaction } from "./views";
@@ -78,6 +81,11 @@ const TYPE_LABEL: Record<TransactionType, string> = {
   CROSS_BORDER: "International transfer",
   SAVINGS_DEPOSIT: "Savings deposit",
   SAVINGS_WITHDRAWAL: "Savings withdrawal",
+  BANK_TRANSFER: "Bank transfer",
+  LOAN_DISBURSEMENT: "Loan disbursement",
+  LOAN_REPAYMENT: "Loan repayment",
+  GROUP_CONTRIBUTION: "Group contribution",
+  GROUP_PAYOUT: "Group payout",
   REVERSAL: "Reversal",
   ADJUSTMENT: "Adjustment",
 };
@@ -102,6 +110,9 @@ export function postingsFor(ctx: AppContext, tx: TransactionRow): PostingInput[]
     case "CASH_IN":
     case "SAVINGS_DEPOSIT":
     case "SAVINGS_WITHDRAWAL":
+    case "LOAN_DISBURSEMENT":
+    case "GROUP_CONTRIBUTION":
+    case "GROUP_PAYOUT":
       return [
         { accountId: src, amountMinor: -amt },
         { accountId: dst, amountMinor: amt },
@@ -122,9 +133,19 @@ export function postingsFor(ctx: AppContext, tx: TransactionRow): PostingInput[]
         { accountId: dst, amountMinor: receive },
       ];
     }
+    case "LOAN_REPAYMENT": {
+      // Repayments clear the fee first, then principal back into the loan book.
+      const { feePortionMinor } = JSON.parse(tx.metadata) as { feePortionMinor: number };
+      return [
+        { accountId: src, amountMinor: -amt },
+        { accountId: feeAccount(), amountMinor: feePortionMinor },
+        { accountId: dst, amountMinor: amt - feePortionMinor },
+      ];
+    }
     case "CASH_OUT":
     case "P2P":
     case "MOBILE_MONEY_PAYOUT":
+    case "BANK_TRANSFER":
     case "AIRTIME":
     case "BILL_PAYMENT":
       return [
@@ -146,7 +167,7 @@ function settle(ctx: AppContext, tx: TransactionRow): TransactionRow {
   postEntry(ctx, { transactionId: tx.id, kind: "PAYMENT", description: `${TYPE_LABEL[tx.type]} ${tx.id}`, postings: postingsFor(ctx, tx) });
   const meta = JSON.parse(tx.metadata) as { issuesToken?: boolean };
   const token = tx.type === "BILL_PAYMENT" && meta.issuesToken ? prepaidToken() : null;
-  const viaExternalRail = tx.type === "MOBILE_MONEY_PAYOUT";
+  const viaExternalRail = (EXTERNAL_RAIL_TYPES as readonly string[]).includes(tx.type);
   const now = ctx.nowIso();
   run(
     ctx.db,
@@ -164,6 +185,7 @@ function completionMessage(tx: TransactionRow): string {
   const amount = formatAmount(tx.amount_minor, tx.currency);
   switch (tx.type) {
     case "MOBILE_MONEY_PAYOUT":
+    case "BANK_TRANSFER":
       return `Sending ${amount} to ${tx.counterparty_label}. We'll confirm delivery shortly.`;
     case "BILL_PAYMENT":
       return tx.token ? `Bill paid. Your meter token is ${tx.token}.` : "Bill paid.";
@@ -178,7 +200,7 @@ function completionMessage(tx: TransactionRow): string {
 
 function notifyCompleted(ctx: AppContext, tx: TransactionRow) {
   const fee = tx.fee_minor ? ` (fee ${formatAmount(tx.fee_minor, tx.currency)})` : "";
-  if (tx.type !== "MOBILE_MONEY_PAYOUT") {
+  if (!(EXTERNAL_RAIL_TYPES as readonly string[]).includes(tx.type)) {
     notify(ctx, tx.initiator_user_id, "TRANSACTION", `${TYPE_LABEL[tx.type]}: ${formatAmount(tx.amount_minor, tx.currency)} — ${tx.counterparty_label}${fee}. Ref ${tx.id}.`);
   }
   if (tx.counterparty_user_id && (tx.type === "P2P" || tx.type === "CROSS_BORDER")) {
@@ -409,6 +431,45 @@ export function draftMobileMoney(
   };
 }
 
+export function bankFor(user: UserRow, bankId: string) {
+  const bank = banksFor(user.country_code).find((b) => b.id === bankId);
+  if (!bank) throw badRequest("Choose a bank in your country");
+  return bank;
+}
+
+export function normalizeBankAccount(bank: Bank, accountNumber: string): string {
+  const normalized = accountNumber.replace(/[\s-]/g, "");
+  if (!new RegExp(bank.accountNumberPattern).test(normalized)) throw badRequest(`Enter a valid ${bank.accountNumberHint.toLowerCase()}`);
+  return normalized;
+}
+
+/**
+ * Bank transfer to an account whose holder name was already confirmed by name
+ * enquiry (the route resolves it; this builder trusts only that resolved name).
+ */
+export function draftBankTransfer(
+  ctx: AppContext,
+  user: UserRow,
+  input: { bankId: string; accountNumber: string; resolvedName: string; amountMinor: number; note?: string },
+  deviceId: string | null,
+): PaymentDraft {
+  const bank = bankFor(user, input.bankId);
+  if (!ctx.providers.has(bank.id)) throw badRequest("This bank isn't available right now");
+  const accountNumber = normalizeBankAccount(bank, input.accountNumber);
+  return {
+    ...base(user, "BANK_TRANSFER", input.amountMinor, deviceId),
+    feeMinor: customerFeeMinor("BANK_TRANSFER", input.amountMinor),
+    sourceAccountId: requireWallet(user),
+    destinationAccountId: systemAccount(ctx, "BANK_SETTLEMENT", currencyOf(user), bank.id),
+    counterpartyLabel: `${input.resolvedName} · ${bank.name} ••${accountNumber.slice(-4)}`,
+    counterpartyKey: `bank:${bank.id}:${accountNumber}`,
+    providerId: bank.id,
+    note: input.note ?? "",
+    metadata: { destination: accountNumber, accountName: input.resolvedName },
+    minTier: MIN_TIER_FOR_SERVICE.BANK_TRANSFER,
+  };
+}
+
 export function draftAirtime(
   ctx: AppContext,
   user: UserRow,
@@ -593,8 +654,8 @@ export function assertReversible(tx: TransactionRow | undefined): TransactionRow
   if (tx.status !== "COMPLETED") throw conflict("Only completed transactions can be reversed");
   if (!REVERSIBLE.has(tx.type)) {
     throw conflict(
-      tx.type === "MOBILE_MONEY_PAYOUT"
-        ? "Mobile money payouts must be recalled through the provider"
+      tx.type === "MOBILE_MONEY_PAYOUT" || tx.type === "BANK_TRANSFER"
+        ? "Payouts to external rails must be recalled through the provider"
         : `${TYPE_LABEL[tx.type]} transactions can't be reversed in the ledger`,
     );
   }

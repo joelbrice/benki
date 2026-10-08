@@ -6,7 +6,9 @@ import { decryptField } from "../lib/crypto";
 import { notFound } from "../lib/errors";
 import { audit } from "./audit";
 import { toAdminAlert } from "./compliance";
+import { groupCount } from "./groups";
 import { balanceOf } from "./ledger";
+import { loanBook } from "./loans";
 import { currencyOf } from "./limits";
 import { toAdminTransaction } from "./views";
 
@@ -22,6 +24,8 @@ export function dashboard(ctx: AppContext): AdminDashboard {
     pendingApprovals: count(ctx, "SELECT COUNT(*) AS n FROM approvals WHERE status = 'PENDING'"),
     pendingProviderPayouts: count(ctx, "SELECT COUNT(*) AS n FROM transactions WHERE status = 'PENDING'"),
     openDisputes: count(ctx, "SELECT COUNT(*) AS n FROM disputes WHERE status = 'OPEN'"),
+    savingsGroups: groupCount(ctx),
+    loanBook: loanBook(ctx),
     volumeByType: all<{ type: TransactionType; currency: string; count: number; amount: number }>(
       ctx.db,
       `SELECT type, currency, COUNT(*) AS count, SUM(amount_minor) AS amount FROM transactions

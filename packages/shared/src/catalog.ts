@@ -192,3 +192,42 @@ export const FX_UNITS_PER_USD: Record<string, number> = {
   TZS: 2600,
   XOF: 600,
 };
+
+export interface Bank {
+  id: string;
+  name: string;
+  accountNumberPattern: string;
+  accountNumberHint: string;
+}
+
+// Illustrative bank rails per market (NIP in Nigeria, PesaLink in Kenya,
+// GhIPSS in Ghana, TISS/TIPS in Tanzania, GIM-UEMOA in Senegal).
+export const BANKS: Record<string, Bank[]> = {
+  KE: [
+    { id: "KE-EQUITY", name: "Equity Bank", accountNumberPattern: "^[0-9]{10,13}$", accountNumberHint: "10–13 digit account number" },
+    { id: "KE-KCB", name: "KCB Bank", accountNumberPattern: "^[0-9]{10,13}$", accountNumberHint: "10–13 digit account number" },
+  ],
+  GH: [
+    { id: "GH-GCB", name: "GCB Bank", accountNumberPattern: "^[0-9]{10,16}$", accountNumberHint: "10–16 digit account number" },
+    { id: "GH-ECOBANK", name: "Ecobank Ghana", accountNumberPattern: "^[0-9]{10,16}$", accountNumberHint: "10–16 digit account number" },
+  ],
+  NG: [
+    { id: "NG-ACCESS", name: "Access Bank", accountNumberPattern: "^[0-9]{10}$", accountNumberHint: "10-digit NUBAN" },
+    { id: "NG-GTB", name: "Guaranty Trust Bank", accountNumberPattern: "^[0-9]{10}$", accountNumberHint: "10-digit NUBAN" },
+  ],
+  TZ: [
+    { id: "TZ-CRDB", name: "CRDB Bank", accountNumberPattern: "^[0-9]{10,15}$", accountNumberHint: "10–15 digit account number" },
+    { id: "TZ-NMB", name: "NMB Bank", accountNumberPattern: "^[0-9]{10,15}$", accountNumberHint: "10–15 digit account number" },
+  ],
+  SN: [
+    { id: "SN-CBAO", name: "CBAO", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number (RIB)" },
+    { id: "SN-ECOBANK", name: "Ecobank Sénégal", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number (RIB)" },
+  ],
+};
+
+export function banksFor(countryCode: string): Bank[] {
+  return BANKS[countryCode] ?? [];
+}
+
+/** USSD short code shown on feature phones; illustrative. */
+export const USSD_SHORT_CODE = "*384*236#";

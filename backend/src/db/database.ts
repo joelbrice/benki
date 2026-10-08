@@ -1,7 +1,7 @@
 import { mkdirSync } from "fs";
 import { dirname } from "path";
 import { DatabaseSync } from "node:sqlite";
-import { SCHEMA_V1, SCHEMA_VERSION } from "./schema";
+import { MIGRATIONS } from "./schema";
 
 export type Db = DatabaseSync;
 
@@ -18,11 +18,13 @@ function migrate(db: Db) {
   db.exec("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)");
   const row = db.prepare("SELECT MAX(version) AS version FROM schema_version").get() as { version: number | null };
   const current = row.version ?? 0;
-  if (current >= SCHEMA_VERSION) return;
-  withTx(db, () => {
-    db.exec(SCHEMA_V1);
-    db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(SCHEMA_VERSION);
-  });
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= current) continue;
+    withTx(db, () => {
+      db.exec(migration.sql);
+      db.prepare("INSERT INTO schema_version (version) VALUES (?)").run(migration.version);
+    });
+  }
 }
 
 const depths = new WeakMap<Db, number>();

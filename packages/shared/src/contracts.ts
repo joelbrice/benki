@@ -14,6 +14,11 @@ export type TransactionType =
   | "CROSS_BORDER"
   | "SAVINGS_DEPOSIT"
   | "SAVINGS_WITHDRAWAL"
+  | "BANK_TRANSFER"
+  | "LOAN_DISBURSEMENT"
+  | "LOAN_REPAYMENT"
+  | "GROUP_CONTRIBUTION"
+  | "GROUP_PAYOUT"
   | "REVERSAL"
   | "ADJUSTMENT";
 
@@ -291,4 +296,97 @@ export interface ApiErrorBody {
     message: string;
     correlationId?: string;
   };
+}
+
+// --- Bank transfers -----------------------------------------------------------
+
+export interface NameEnquiryResponse {
+  bankId: string;
+  accountNumber: string;
+  /** Name the receiving bank holds for the account — shown before the customer confirms. */
+  accountName: string;
+}
+
+export interface BankTransferRequest extends MoneyMovement, PinProtected {
+  bankId: string;
+  accountNumber: string;
+  /** The name returned by name enquiry, echoed back so a stale confirmation is detected. */
+  accountName: string;
+  note?: string;
+}
+
+// --- Nano-loans -----------------------------------------------------------------
+
+export type LoanStatus = "ACTIVE" | "OVERDUE" | "REPAID";
+
+export interface LoanOffer {
+  eligible: boolean;
+  /** Customer-safe reasons when not eligible. */
+  reasons: string[];
+  currency: string;
+  minPrincipalMinor: number;
+  maxPrincipalMinor: number;
+  feeBps: number;
+  termDays: number;
+  aprPercent: number;
+}
+
+export interface Loan {
+  loanId: string;
+  currency: string;
+  principalMinor: number;
+  feeMinor: number;
+  totalDueMinor: number;
+  repaidMinor: number;
+  outstandingMinor: number;
+  status: LoanStatus;
+  disbursedAt: string;
+  dueAt: string;
+  repaidAt: string | null;
+}
+
+export interface LoanApplyRequest extends PinProtected {
+  idempotencyKey: string;
+  principalMinor: number;
+  /** Explicit acceptance of the disclosed fee, total and due date. */
+  acceptTerms: true;
+}
+
+export interface LoanRepayRequest extends MoneyMovement, PinProtected {}
+
+// --- Group savings (chama / tontine / susu) ---------------------------------------
+
+export interface GroupMember {
+  userId: string;
+  displayName: string;
+  role: "ADMIN" | "MEMBER";
+  contributedMinor: number;
+  joinedAt: string;
+}
+
+export interface GroupPayoutRequest {
+  requestId: string;
+  recipientUserId: string;
+  recipientName: string;
+  amountMinor: number;
+  reason: string;
+  status: "PENDING" | "EXECUTED" | "REJECTED";
+  approvals: number;
+  rejections: number;
+  myVote: "APPROVE" | "REJECT" | null;
+  requestedBy: string;
+  createdAt: string;
+  transactionId: string | null;
+}
+
+export interface SavingsGroup {
+  groupId: string;
+  name: string;
+  currency: string;
+  poolBalanceMinor: number;
+  approvalsRequired: number;
+  myRole: "ADMIN" | "MEMBER";
+  members: GroupMember[];
+  payoutRequests: GroupPayoutRequest[];
+  createdAt: string;
 }

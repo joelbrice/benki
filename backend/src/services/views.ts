@@ -3,7 +3,7 @@ import type { AppContext } from "../context";
 import { one } from "../db/query";
 import type { TransactionRow } from "../db/rows";
 
-const CREDIT_TO_INITIATOR = new Set<TransactionType>(["CASH_IN", "SAVINGS_WITHDRAWAL"]);
+const CREDIT_TO_INITIATOR = new Set<TransactionType>(["CASH_IN", "SAVINGS_WITHDRAWAL", "LOAN_DISBURSEMENT", "GROUP_PAYOUT"]);
 export const DISPUTABLE_TYPES = new Set<TransactionType>([
   "P2P",
   "MERCHANT_PAYMENT",
@@ -11,6 +11,7 @@ export const DISPUTABLE_TYPES = new Set<TransactionType>([
   "AIRTIME",
   "CROSS_BORDER",
   "MOBILE_MONEY_PAYOUT",
+  "BANK_TRANSFER",
 ]);
 export const DISPUTE_WINDOW_DAYS = 120;
 

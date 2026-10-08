@@ -63,6 +63,7 @@ describe("platform guardrails", () => {
         NODE_ENV: "production",
         BENKI_DATA_KEY: key,
         BENKI_WEBHOOK_SECRET: "a-real-secret",
+        BENKI_USSD_GATEWAY_KEY: "a-real-gateway-key",
         BENKI_CORS_ORIGINS: "https://app.benki.example",
       }),
     ).not.toThrow();

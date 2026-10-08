@@ -6,7 +6,9 @@ export type FeeBearingType =
   | "AIRTIME"
   | "BILL_PAYMENT"
   | "MERCHANT_PAYMENT"
-  | "CROSS_BORDER";
+  | "CROSS_BORDER"
+  | "BANK_TRANSFER"
+  | "GROUP_CONTRIBUTION";
 
 export interface FeeRule {
   /** Charged to the customer on top of the amount, in basis points. */
@@ -28,6 +30,8 @@ export const FEE_SCHEDULE: Record<FeeBearingType, FeeRule> = {
   BILL_PAYMENT: { customerBps: 0, merchantBps: 0, description: "Free bill payments" },
   MERCHANT_PAYMENT: { customerBps: 0, merchantBps: 100, description: "Free for customers; merchants pay 1%" },
   CROSS_BORDER: { customerBps: 150, merchantBps: 0, description: "1.5% plus a 1% FX margin on the rate" },
+  BANK_TRANSFER: { customerBps: 50, merchantBps: 0, description: "0.5% to bank accounts" },
+  GROUP_CONTRIBUTION: { customerBps: 0, merchantBps: 0, description: "Free contributions to your savings group" },
 };
 
 export const FX_MARGIN_BPS = 100;

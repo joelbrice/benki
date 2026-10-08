@@ -7,7 +7,7 @@ import { audit } from "./audit";
 import { entriesForTransaction, reverseEntry } from "./ledger";
 import { notify } from "./notifications";
 import { getTransaction } from "./payments";
-import { ProviderUnavailableError, type ProviderStatus } from "./providers";
+import { EXTERNAL_RAIL_TYPES, ProviderUnavailableError, type ProviderStatus } from "./providers";
 
 /**
  * Applies a terminal provider status to a dispatched payout
@@ -69,7 +69,8 @@ export async function dispatchPayout(ctx: AppContext, txId: string): Promise<Tra
 export async function runSettlementOnce(ctx: AppContext) {
   const pending = all<TransactionRow>(
     ctx.db,
-    "SELECT * FROM transactions WHERE status = 'PENDING' AND type = 'MOBILE_MONEY_PAYOUT' ORDER BY created_at",
+    `SELECT * FROM transactions WHERE status = 'PENDING'
+     AND type IN (${EXTERNAL_RAIL_TYPES.map((t) => `'${t}'`).join(",")}) ORDER BY created_at`,
   );
   let completed = 0;
   let failed = 0;

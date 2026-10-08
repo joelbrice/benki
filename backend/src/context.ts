@@ -1,8 +1,8 @@
-import { AFRICAN_COUNTRIES } from "@benki/shared";
+import { AFRICAN_COUNTRIES, BANKS } from "@benki/shared";
 import { loadConfig, type AppConfig } from "./config";
 import { openDatabase, type Db } from "./db/database";
 import { systemClock, type Clock } from "./lib/clock";
-import { SandboxMobileMoneyAdapter, sandboxTelco, type ProviderAdapter, type TelcoSignals } from "./services/providers";
+import { SandboxRailAdapter, sandboxTelco, type ProviderAdapter, type TelcoSignals } from "./services/providers";
 
 export interface Logger {
   info(message: string, fields?: Record<string, unknown>): void;
@@ -46,8 +46,11 @@ export function createContext(options: ContextOptions = {}): AppContext {
 
   const providers = options.providers ?? new Map<string, ProviderAdapter>();
   if (!options.providers) {
-    const ids = new Set(AFRICAN_COUNTRIES.flatMap((c) => c.mobileMoneyProviders.map((p) => p.id)));
-    for (const id of ids) providers.set(id, new SandboxMobileMoneyAdapter(id, db, clock, config.providerLatencyMs));
+    const ids = new Set([
+      ...AFRICAN_COUNTRIES.flatMap((c) => c.mobileMoneyProviders.map((p) => p.id)),
+      ...Object.values(BANKS).flatMap((banks) => banks.map((b) => b.id)),
+    ]);
+    for (const id of ids) providers.set(id, new SandboxRailAdapter(id, db, clock, config.providerLatencyMs));
   }
 
   return {
