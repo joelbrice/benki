@@ -60,7 +60,13 @@ export function listAllDisputes(ctx: AppContext, status?: string): AdminDispute[
   return rows.map((d) => {
     const tx = getTransaction(ctx, d.transaction_id);
     const user = one<{ phone: string }>(ctx.db, "SELECT phone FROM users WHERE id = ?", d.user_id);
-    return { ...toDispute(d), userId: d.user_id, userPhone: user?.phone ?? "", transaction: tx ? toAdminTransaction(ctx, tx) : null };
+    return {
+      ...toDispute(d),
+      userId: d.user_id,
+      userPhone: user?.phone ?? "",
+      approvalId: d.approval_id,
+      transaction: tx ? toAdminTransaction(ctx, tx) : null,
+    };
   });
 }
 

@@ -199,5 +199,7 @@ export interface AdminDispute {
   status: "OPEN" | "RESOLVED_REVERSED" | "RESOLVED_REJECTED";
   createdAt: string;
   resolution: string | null;
+  /** Set while an upheld dispute's reversal waits for a second approver. */
+  approvalId: string | null;
   transaction: AdminTransaction | null;
 }
