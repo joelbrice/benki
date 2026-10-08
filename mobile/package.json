@@ -1,11 +1,13 @@
 {
   "name": "@benki/mobile",
   "version": "0.1.0",
-  "description": "Expo (iOS + Android) client for the Benki vertical slice, mirroring web/ against the same mock backend.",
+  "description": "Expo (iOS + Android) Benki customer app: every rail, PIN-confirmed payments with fee preview, savings, disputes and KYC, sharing contracts with the API via @benki/shared.",
   "main": "index.ts",
   "dependencies": {
     "@expo/metro-runtime": "^57.0.15",
     "expo": "~57.0.23",
+    "expo-crypto": "~57.0.3",
+    "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "^19.2.3",

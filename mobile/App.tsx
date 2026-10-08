@@ -1,200 +1,108 @@
-import { useState } from "react";
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
-import { api, ApiRequestError } from "./src/api";
-import { Onboarding } from "./src/components/Onboarding";
-import { Kyc } from "./src/components/Kyc";
-import { Wallet } from "./src/components/Wallet";
-import { Transfer } from "./src/components/Transfer";
-import { History } from "./src/components/History";
-import { StatusBanner } from "./src/components/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { COUNTRY_BY_CODE } from "@benki/shared";
+import { ApiRequestError, customerApi } from "./src/api";
+import { Banner, Muted } from "./src/components/ui";
+import { History, Profile, Savings } from "./src/screens/Account";
+import { Onboarding, SetPin } from "./src/screens/Auth";
+import { Home } from "./src/screens/Home";
+import { Cash, Pay, Send } from "./src/screens/Money";
+import type { Session } from "./src/session";
+import { deleteItem, getItem, setItem } from "./src/storage";
 import { colors } from "./src/theme/colors";
-import type { JourneyStep, UserProfile, WalletAccount, WalletTransaction } from "./src/types";
 
-const STEPS: JourneyStep[] = ["ONBOARDING", "KYC", "WALLET", "TRANSFER", "HISTORY"];
+const TABS = ["Home", "Send", "Pay", "Cash", "Savings", "History", "Profile"] as const;
+type Tab = (typeof TABS)[number];
+const TOKEN_KEY = "benki.token";
 
 export default function App() {
-  const [step, setStep] = useState<JourneyStep>("ONBOARDING");
-  const [otpSent, setOtpSent] = useState(false);
-  const [pendingPhone, setPendingPhone] = useState("");
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [wallet, setWallet] = useState<WalletAccount | null>(null);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("Low-bandwidth mode ready.");
+  const [booted, setBooted] = useState(false);
+  const api = useMemo(() => (token ? customerApi(token) : null), [token]);
+  const [session, setSession] = useState<Omit<Session, "refresh"> | null>(null);
+  const [needsPin, setNeedsPin] = useState(false);
+  const [tab, setTab] = useState<Tab>("Home");
   const [error, setError] = useState<string | null>(null);
 
-  async function guarded<T>(fn: () => Promise<T>) {
-    setBusy(true);
-    setError(null);
-    try {
-      return await fn();
-    } catch (e) {
-      setError(e instanceof ApiRequestError ? e.message : "Unexpected error — check the backend is running.");
-      return undefined;
-    } finally {
-      setBusy(false);
-    }
-  }
+  useEffect(() => {
+    getItem(TOKEN_KEY)
+      .then(setToken)
+      .finally(() => setBooted(true));
+  }, []);
 
-  async function refreshTransactions(walletId: string, authToken: string) {
-    const { transactions } = await api.transactions(authToken, walletId);
-    setTransactions(transactions);
+  const signOut = useCallback(() => {
+    void deleteItem(TOKEN_KEY);
+    setToken(null);
+    setSession(null);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    if (!api) return;
+    try {
+      let { user, wallet } = await api.me();
+      if (!wallet && user.status === "ACTIVE") wallet = (await api.createWallet()).wallet;
+      setNeedsPin(!user.pinSet);
+      if (!wallet) throw new Error("Wallet unavailable");
+      setSession({ api, user, wallet, limits: await api.limits(), country: COUNTRY_BY_CODE[user.countryCode] });
+      setError(null);
+    } catch (e) {
+      if (e instanceof ApiRequestError && e.status === 401) signOut();
+      else setError(e instanceof Error ? e.message : "Couldn't load your account");
+    }
+  }, [api, signOut]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  let body;
+  if (!booted) body = <Muted>Loading…</Muted>;
+  else if (!token || !api)
+    body = (
+      <Onboarding
+        onSignedIn={(t) => {
+          void setItem(TOKEN_KEY, t);
+          setToken(t);
+        }}
+      />
+    );
+  else if (needsPin) body = <SetPin api={api} onDone={() => void refresh()} />;
+  else if (!session) body = error ? <Banner tone="error">{error}</Banner> : <Muted>Loading your account…</Muted>;
+  else {
+    const full: Session = { ...session, refresh };
+    body = (
+      <>
+        {tab === "Home" && <Home session={full} onVerify={() => setTab("Profile")} />}
+        {tab === "Send" && <Send session={full} />}
+        {tab === "Pay" && <Pay session={full} />}
+        {tab === "Cash" && <Cash session={full} />}
+        {tab === "Savings" && <Savings session={full} />}
+        {tab === "History" && <History session={full} />}
+        {tab === "Profile" && <Profile session={full} onLogout={() => void api.logout().finally(signOut)} />}
+      </>
+    );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={styles.title}>Benki — Bank Without Borders</Text>
+          <Text style={styles.title}>Benki</Text>
           <Text style={styles.subtitle}>
-            Focused for rural access, assisted onboarding, and interoperable transfers.
+            Bank without borders{session ? ` · ${session.user.fullName ?? session.user.phoneNumber} · ${session.country.name}` : ""}
           </Text>
         </View>
-
-        <View style={styles.stepIndicator}>
-          {STEPS.map((s, i) => (
-            <Text key={s} style={s === step ? styles.stepActive : styles.step}>
-              {s}
-              {i < STEPS.length - 1 ? " › " : ""}
-            </Text>
-          ))}
-        </View>
-
-        {error ? <StatusBanner message={error} error /> : <StatusBanner message={status} />}
-
-        {step === "ONBOARDING" && (
-          <Onboarding
-            busy={busy}
-            otpSent={otpSent}
-            onRequestOtp={async (phoneNumber, countryCode) => {
-              await guarded(async () => {
-                const res = await api.sendOtp(phoneNumber, countryCode);
-                setPendingPhone(phoneNumber);
-                setOtpSent(true);
-                setStatus(`OTP sent. Dev shortcut — your code is ${res.devOtp}.`);
-              });
-            }}
-            onVerify={async (otp) => {
-              await guarded(async () => {
-                const res = await api.verifyOtp(pendingPhone, otp);
-                setToken(res.token);
-                setUser(res.user);
-                setStatus("Signed in. Proceed to identity verification.");
-                setStep("KYC");
-              });
-            }}
-          />
+        {session && !needsPin && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+            {TABS.map((t) => (
+              <Pressable key={t} accessibilityRole="tab" accessibilityState={{ selected: t === tab }} onPress={() => setTab(t)} style={[styles.tab, t === tab && styles.tabActive]}>
+                <Text style={[styles.tabText, t === tab && styles.tabTextActive]}>{t}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
         )}
-
-        {step === "KYC" && user && token && (
-          <Kyc
-            busy={busy}
-            user={user}
-            onUpgradeTier1={async (nationalId) => {
-              await guarded(async () => {
-                const res = await api.upgradeKycTier1(token, nationalId);
-                setUser({ ...user, kycTier: res.kycTier, nationalId });
-                setStatus(`Upgraded to ${res.kycTier}.`);
-              });
-            }}
-            onUpgradeTier2={async () => {
-              await guarded(async () => {
-                const res = await api.upgradeKycTier2(token, true);
-                setUser({ ...user, kycTier: res.kycTier, proofOfAddressConfirmed: true });
-                setStatus(`Upgraded to ${res.kycTier}.`);
-              });
-            }}
-            onContinue={() => setStep("WALLET")}
-          />
-        )}
-
-        {step === "WALLET" && token && user && (
-          <Wallet
-            busy={busy}
-            user={user}
-            wallet={wallet}
-            onCreateWallet={async () => {
-              await guarded(async () => {
-                const res = await api.createWallet(token);
-                setWallet(res.wallet);
-                setStatus("Wallet created.");
-              });
-            }}
-            onCashIn={async (amountMinor, agentId) => {
-              if (!wallet) return;
-              await guarded(async () => {
-                const res = await api.cashIn(token, wallet.walletId, { amountMinor, agentId });
-                setWallet(res.wallet);
-                setStatus("Cash-in complete.");
-              });
-            }}
-            onCashOut={async (amountMinor, agentId) => {
-              if (!wallet) return;
-              await guarded(async () => {
-                const res = await api.cashOut(token, wallet.walletId, { amountMinor, agentId });
-                setWallet(res.wallet);
-                setStatus("Cash-out complete.");
-              });
-            }}
-            onAirtimeTopUp={async (amountMinor, providerId) => {
-              if (!wallet) return;
-              await guarded(async () => {
-                const res = await api.airtimeTopUp(token, wallet.walletId, { amountMinor, providerId });
-                setWallet(res.wallet);
-                setStatus("Airtime top-up complete.");
-              });
-            }}
-            onContinue={() => setStep("TRANSFER")}
-          />
-        )}
-
-        {step === "TRANSFER" && token && user && wallet && (
-          <Transfer
-            busy={busy}
-            user={user}
-            wallet={wallet}
-            onSendInternal={async (destinationPhoneNumber, amountMinor, note) => {
-              await guarded(async () => {
-                const res = await api.transferInternal(token, {
-                  idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                  destinationPhoneNumber,
-                  amountMinor,
-                  currency: wallet.currency,
-                  note: note || undefined,
-                });
-                setWallet(res.wallet);
-                setStatus("Transfer successful.");
-                await refreshTransactions(wallet.walletId, token);
-                setStep("HISTORY");
-              });
-            }}
-            onSendMobileMoney={async (providerId, destinationPhoneNumber, amountMinor) => {
-              await guarded(async () => {
-                const res = await api.transferMobileMoney(token, {
-                  idempotencyKey: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                  providerId,
-                  destinationPhoneNumber,
-                  amountMinor,
-                  currency: wallet.currency,
-                });
-                setWallet(res.wallet);
-                setStatus("Mobile money transfer sent.");
-                await refreshTransactions(wallet.walletId, token);
-                setStep("HISTORY");
-              });
-            }}
-          />
-        )}
-
-        {step === "HISTORY" && wallet && (
-          <History
-            transactions={transactions}
-            currency={wallet.currency}
-            onBackToTransfer={() => setStep("TRANSFER")}
-          />
-        )}
+        {body}
       </ScrollView>
     </SafeAreaView>
   );
@@ -202,11 +110,13 @@ export default function App() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 20, gap: 16, maxWidth: 480, width: "100%", alignSelf: "center" },
-  header: { gap: 4 },
-  title: { fontSize: 22, fontWeight: "800", color: colors.text },
+  scroll: { padding: 16, gap: 14, maxWidth: 520, width: "100%", alignSelf: "center" },
+  header: { gap: 2 },
+  title: { fontSize: 24, fontWeight: "800", color: colors.text },
   subtitle: { fontSize: 13, color: colors.subtext },
-  stepIndicator: { flexDirection: "row", flexWrap: "wrap" },
-  step: { fontSize: 11, color: "#6a7a75" },
-  stepActive: { fontSize: 11, color: colors.primary, fontWeight: "700" },
+  tabs: { gap: 4 },
+  tab: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: "transparent" },
+  tabActive: { backgroundColor: colors.card, borderColor: colors.border },
+  tabText: { fontWeight: "600", color: colors.subtext },
+  tabTextActive: { color: colors.primary },
 });
