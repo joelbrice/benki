@@ -2,7 +2,7 @@
   "name": "benki-platform",
   "private": true,
   "version": "0.1.0",
-  "description": "Benki — Bank Without Borders: monorepo for the mock backend, web app, and shared types. See mobile/ for the Expo app (kept out of these workspaces).",
+  "description": "Benki monorepo: finance core API, web app + back office, and shared contracts. The Expo app in mobile/ is a separate project that imports packages/shared through Metro.",
   "workspaces": [
     "packages/*",
     "backend",
@@ -12,6 +12,7 @@
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "dev:backend": "npm run dev --workspace backend",
-    "dev:web": "npm run dev --workspace web"
+    "dev:web": "npm run dev --workspace web",
+    "test": "npm run test --workspace backend"
   }
 }

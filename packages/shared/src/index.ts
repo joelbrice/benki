@@ -4,5 +4,3 @@ export * from "./limits";
 export * from "./fees";
 export * from "./contracts";
 export * from "./admin";
-
-export type JourneyStep = "ONBOARDING" | "KYC" | "WALLET" | "TRANSFER" | "HISTORY";
