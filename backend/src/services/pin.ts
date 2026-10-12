@@ -43,7 +43,7 @@ export function changePin(ctx: AppContext, user: UserRow, currentPin: string, ne
   assertStrongPin(newPin, user);
   withTx(ctx.db, () => {
     run(ctx.db, "UPDATE users SET pin_hash = ? WHERE id = ?", hashSecret(newPin), user.id);
-    notify(ctx, user.id, "SECURITY", "Your transaction PIN was changed. If this wasn't you, contact support immediately.");
+    notify(ctx, user.id, "SECURITY", msg("notif.pinChanged"));
     audit(ctx, { actorType: "USER", actorId: user.id, action: "PIN_CHANGED", entityType: "user", entityId: user.id });
   });
 }

@@ -165,6 +165,17 @@ export const serverEn = {
   "notif.requestReceived": "{name} asked you for {amount}. Only pay if you know them.",
   "notif.requestReceivedNote": "{name} asked you for {amount}: “{note}”. Only pay if you know them.",
   "notif.requestDeclined": "Your request for {amount} was declined.",
+  "notif.kycTier1": "Identity verified. Your limits have been raised to Tier 1.",
+  "notif.kycTier2": "Enhanced verification complete. You now have Tier 2 limits.",
+  "notif.restricted": "Your account has been restricted. Please contact support.",
+  "notif.unrestricted": "Your account restrictions have been lifted.",
+  "notif.reversed": "{type} {ref} was reversed. {amount} has been returned to you.",
+  "notif.reversedReceived": "A payment you received (ref {ref}) was reversed after a review.",
+  "notif.adjustment": "Account adjustment: {sign}{amount}. {memo}",
+  "notif.disputeReceived": "We received your dispute for {ref}. We'll update you within 10 working days.",
+  "notif.disputeUpdate": "Update on your dispute for {ref}: {resolution}",
+  "notif.disputeUpheld": "Your dispute was upheld and the payment has been reversed.",
+  "notif.pinChanged": "Your transaction PIN was changed. If this wasn't you, contact support immediately.",
 
   // --- USSD (keep lines short: 182 characters per screen) ------------------------------
   "ussd.notAvailable": "Benki isn't available on this network yet.",

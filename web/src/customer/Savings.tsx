@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { formatAmount, parseMajorToMinor, type SavingsVault } from "@benki/shared";
-import { AmountField, Banner, Meter, useAction } from "../ui/common";
+import { parseMajorToMinor, type SavingsVault } from "@benki/shared";
+import { useI18n } from "../i18n";
+import { AmountField, Banner, EmptyState, Meter, PageHeader, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
 import type { Session } from "./session";
 
 export function Savings({ session }: { session: Session }) {
-  const { api, wallet } = session;
+  const { t, money } = useI18n();
+  const { api, wallet, user } = session;
   const [vaults, setVaults] = useState<SavingsVault[]>([]);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const { busy, error, run } = useAction();
-  const fmt = (n: number) => formatAmount(n, wallet.currency);
+  const fmt = (n: number) => money(n, wallet.currency);
 
   const load = useCallback(() => api.vaults().then((r) => setVaults(r.vaults), () => undefined), [api]);
   useEffect(() => {
@@ -39,62 +41,61 @@ export function Savings({ session }: { session: Session }) {
     const amountMinor = parseMajorToMinor(amounts[vault.vaultId] ?? "", wallet.currency);
     if (!amountMinor) return;
     setIntent({
-      title: direction === "deposit" ? `Save to ${vault.name}` : `Withdraw from ${vault.name}`,
-      rows: [["Amount", fmt(amountMinor)]],
+      title: direction === "deposit" ? t("savings.saveTo", { name: vault.name }) : t("savings.withdrawFrom", { name: vault.name }),
+      rows: [[t("common.amount"), fmt(amountMinor)]],
       currency: wallet.currency,
       amountMinor,
       requirePin: false,
       submit: (_pin, idempotencyKey) =>
-        direction === "deposit"
-          ? api.vaultDeposit(vault.vaultId, { idempotencyKey, amountMinor })
-          : api.vaultWithdraw(vault.vaultId, { idempotencyKey, amountMinor }),
+        direction === "deposit" ? api.vaultDeposit(vault.vaultId, { idempotencyKey, amountMinor }) : api.vaultWithdraw(vault.vaultId, { idempotencyKey, amountMinor }),
     });
   };
 
   const targetMinor = parseMajorToMinor(target, wallet.currency);
-  return (
-    <>
-      <div className="card">
-        <h2>Savings vaults</h2>
-        <p className="muted">Set money aside for school fees, harvest season or emergencies. Savings count towards your total holdings limit.</p>
-        {vaults.length === 0 && <p className="muted">No vaults yet.</p>}
-        <ul className="list">
-          {vaults.map((v) => (
-            <li key={v.vaultId}>
-              <div className="spread">
-                <strong>{v.name}</strong>
-                <span>
-                  {fmt(v.balanceMinor)} / {fmt(v.targetMinor)}
-                </span>
-              </div>
-              <Meter used={v.balanceMinor} total={v.targetMinor} />
-              <div className="row">
-                <div style={{ flex: 1, minWidth: 140 }}>
-                  <AmountField
-                    id={`vault-${v.vaultId}`}
-                    currency={wallet.currency}
-                    value={amounts[v.vaultId] ?? ""}
-                    onChange={(val) => setAmounts({ ...amounts, [v.vaultId]: val })}
-                  />
-                </div>
-                <button className="small" onClick={() => move(v, "deposit")}>
-                  Add
-                </button>
-                <button className="small secondary" onClick={() => move(v, "withdraw")}>
-                  Withdraw
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+  if (user.kycTier === "TIER_0") {
+    return (
+      <div className="stack">
+        <PageHeader title={t("savings.title")} subtitle={t("savings.intro")} />
+        <Banner tone="warn">{t("err.tierRequired")}</Banner>
       </div>
-      <div className="card">
-        <h3>New vault</h3>
-        <label htmlFor="vault-name">
-          Name
-          <input id="vault-name" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <AmountField id="vault-target" label="Target" currency={wallet.currency} value={target} onChange={setTarget} />
+    );
+  }
+
+  return (
+    <div className="stack">
+      <PageHeader title={t("savings.title")} subtitle={t("savings.intro")} />
+      {vaults.length === 0 && <EmptyState icon="savings" text={t("savings.empty")} />}
+      <div className="card-grid">
+        {vaults.map((v) => (
+          <section key={v.vaultId} className="card vault">
+            <div className="spread">
+              <strong>{v.name}</strong>
+              <span className="badge neutral">{Math.min(100, Math.round((v.balanceMinor / Math.max(1, v.targetMinor)) * 100))}%</span>
+            </div>
+            <div className="vault-amount">{fmt(v.balanceMinor)}</div>
+            <Meter used={v.balanceMinor} total={v.targetMinor} />
+            <span className="muted small">{t("savings.progress", { saved: fmt(v.balanceMinor), target: fmt(v.targetMinor) })}</span>
+            <AmountField id={`vault-${v.vaultId}`} currency={wallet.currency} value={amounts[v.vaultId] ?? ""} onChange={(val) => setAmounts({ ...amounts, [v.vaultId]: val })} />
+            <div className="button-pair">
+              <button className="small" onClick={() => move(v, "deposit")}>
+                {t("savings.add")}
+              </button>
+              <button className="small secondary" onClick={() => move(v, "withdraw")}>
+                {t("savings.withdraw")}
+              </button>
+            </div>
+          </section>
+        ))}
+      </div>
+      <section className="card">
+        <h3>{t("savings.new")}</h3>
+        <div className="field-row">
+          <label htmlFor="vault-name">
+            {t("savings.name")}
+            <input id="vault-name" maxLength={40} value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <AmountField id="vault-target" label={t("savings.target")} currency={wallet.currency} value={target} onChange={setTarget} />
+        </div>
         {error && <Banner tone="error">{error}</Banner>}
         <button
           disabled={busy || name.trim().length < 2 || !targetMinor}
@@ -107,9 +108,9 @@ export function Savings({ session }: { session: Session }) {
             })
           }
         >
-          Create vault
+          {t("savings.create")}
         </button>
-      </div>
-    </>
+      </section>
+    </div>
   );
 }

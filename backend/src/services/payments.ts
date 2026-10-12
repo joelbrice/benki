@@ -725,9 +725,9 @@ export function reverseTransaction(ctx: AppContext, txId: string, staffId: strin
       throw error;
     }
     run(ctx.db, "UPDATE transactions SET status = 'REVERSED', updated_at = ? WHERE id = ?", now, tx.id);
-    notify(ctx, tx.initiator_user_id, "TRANSACTION", `${TYPE_LABEL[tx.type]} ${tx.id} was reversed. ${formatAmount(tx.amount_minor + tx.fee_minor, tx.currency)} has been returned to you.`);
+    notify(ctx, tx.initiator_user_id, "TRANSACTION", msg("notif.reversed", { type: typeName(tx.type), ref: tx.id, amount: money(tx.amount_minor + tx.fee_minor, tx.currency) }));
     if (tx.counterparty_user_id) {
-      notify(ctx, tx.counterparty_user_id, "TRANSACTION", `A payment you received (ref ${tx.id}) was reversed after a review.`);
+      notify(ctx, tx.counterparty_user_id, "TRANSACTION", msg("notif.reversedReceived", { ref: tx.id }));
     }
     audit(ctx, { actorType: "STAFF", actorId: staffId, action: "TRANSACTION_REVERSED", entityType: "transaction", entityId: tx.id, details: { reversalId, reason } });
     return getTransaction(ctx, reversalId)!;
@@ -771,7 +771,7 @@ export function manualAdjustment(ctx: AppContext, userId: string, deltaMinor: nu
         { accountId: suspense, amountMinor: -deltaMinor },
       ],
     });
-    notify(ctx, userId, "TRANSACTION", `Account adjustment: ${credit ? "+" : "-"}${formatAmount(Math.abs(deltaMinor), currency)}. ${memo}`);
+    notify(ctx, userId, "TRANSACTION", msg("notif.adjustment", { sign: credit ? "+" : "-", amount: money(Math.abs(deltaMinor), currency), memo }));
     audit(ctx, { actorType: "STAFF", actorId: staffId, action: "MANUAL_ADJUSTMENT_POSTED", entityType: "transaction", entityId: id, details: { userId, deltaMinor, memo } });
     return getTransaction(ctx, id)!;
   });

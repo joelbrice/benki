@@ -1,108 +1,216 @@
 import { useEffect, useState } from "react";
-import { formatAmount, type Notification } from "@benki/shared";
+import type { CurrencyPocket, Notification, PaymentRequest, UserTransaction } from "@benki/shared";
+import { useI18n } from "../i18n";
 import { Banner, Meter } from "../ui/common";
-import type { Session } from "./session";
+import { Icon, type IconName } from "../ui/icons";
+import { TxRow } from "../ui/TxRow";
+import type { Preset, Section, Session } from "./session";
 
-export function Home({ session, onVerify }: { session: Session; onVerify: () => void }) {
-  const { wallet, limits, user, api } = session;
-  const fmt = (n: number) => formatAmount(n, wallet.currency);
+const HIDE_KEY = "benki.hideBalance";
+
+function readHidden(): boolean {
+  try {
+    return localStorage.getItem(HIDE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+const QUICK: { key: Parameters<ReturnType<typeof useI18n>["t"]>[0]; icon: IconName; to: Section; preset?: Preset }[] = [
+  { key: "quick.send", icon: "send", to: "send", preset: "benki" },
+  { key: "quick.request", icon: "request", to: "requests" },
+  { key: "quick.bills", icon: "pay", to: "pay", preset: "bills" },
+  { key: "quick.airtime", icon: "zap", to: "pay", preset: "airtime" },
+  { key: "quick.cash", icon: "cash", to: "cash" },
+  { key: "quick.save", icon: "savings", to: "savings" },
+  { key: "quick.borrow", icon: "loans", to: "loans" },
+  { key: "quick.convert", icon: "convert", to: "currencies" },
+];
+
+export function Home({ session }: { session: Session }) {
+  const { t, money, date } = useI18n();
+  const { wallet, limits, user, api, go } = session;
+  const fmt = (n: number) => money(n, wallet.currency);
+  const [hidden, setHidden] = useState(readHidden);
   const [notes, setNotes] = useState<Notification[]>([]);
+  const [recent, setRecent] = useState<UserTransaction[]>([]);
+  const [pockets, setPockets] = useState<CurrencyPocket[]>([]);
+  const [incoming, setIncoming] = useState<PaymentRequest[]>([]);
 
   useEffect(() => {
     api.notifications().then((r) => setNotes(r.notifications), () => undefined);
-  }, [api, wallet.ledgerBalanceMinor]);
+    api.transactions(wallet.walletId).then((r) => setRecent(r.transactions.slice(0, 5)), () => undefined);
+    api.pockets().then((r) => setPockets(r.pockets), () => undefined);
+    api.requests().then((r) => setIncoming(r.requests.filter((q) => q.direction === "INCOMING" && q.status === "PENDING")), () => undefined);
+  }, [api, wallet.walletId, wallet.ledgerBalanceMinor]);
+
+  const toggleHidden = () => {
+    const next = !hidden;
+    setHidden(next);
+    try {
+      localStorage.setItem(HIDE_KEY, next ? "1" : "0");
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  const mask = (s: string) => (hidden ? "•••••" : s);
+  const hour = new Date().getHours();
+  const greetingKey = hour < 12 ? "home.morning" : hour < 18 ? "home.afternoon" : "home.evening";
+  const firstName = user.fullName?.split(/\s+/)[0] ?? "";
 
   return (
-    <>
-      {user.status === "FROZEN" && <Banner tone="error">Your account is restricted. Please contact support.</Banner>}
-      {user.kycReviewPending && <Banner tone="warn">We're verifying your identity details. We'll notify you when it's done.</Banner>}
-      {user.kycTier === "TIER_0" && !user.kycReviewPending && user.status === "ACTIVE" && (
-        <Banner>
-          You're on basic limits.{" "}
-          <button className="small secondary" onClick={onVerify}>
-            Verify your identity
-          </button>{" "}
-          to send more, save and send abroad.
-        </Banner>
+    <div className="stack">
+      {user.status === "FROZEN" && <Banner tone="error">{t("home.restricted")}</Banner>}
+      {user.kycReviewPending && <Banner tone="warn">{t("home.kycPending")}</Banner>}
+
+      <section className="balance-card">
+        <div className="balance-top">
+          <span className="greeting">{t(greetingKey, { name: firstName }).replace(/,\s*$/, "")}</span>
+          <button className="icon-button on-dark" onClick={toggleHidden} aria-label={hidden ? t("common.showBalance") : t("common.hideBalance")}>
+            <Icon name={hidden ? "eye" : "eyeOff"} size={18} />
+          </button>
+        </div>
+        <span className="balance-label">{t("home.available")}</span>
+        <div className="balance" data-testid="available-balance">
+          {mask(fmt(wallet.availableBalanceMinor))}
+        </div>
+        <div className="balance-stats">
+          <div>
+            <span>{t("home.ledger")}</span>
+            <strong>{mask(fmt(wallet.ledgerBalanceMinor))}</strong>
+          </div>
+          <div>
+            <span>{t("home.reserved")}</span>
+            <strong>{mask(fmt(wallet.reservedBalanceMinor))}</strong>
+          </div>
+          <div>
+            <span>{t("home.inFlight")}</span>
+            <strong>{mask(fmt(wallet.pendingBalanceMinor))}</strong>
+          </div>
+        </div>
+        {pockets.length > 0 && (
+          <div className="pocket-chips">
+            {pockets.map((p) => (
+              <button key={p.pocketId} className="pocket-chip" onClick={() => go("currencies")}>
+                {mask(money(p.balanceMinor, p.currency))}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="quick-grid" aria-label={t("home.quickActions")}>
+        {QUICK.map((q) => (
+          <button key={q.key} className="quick" onClick={() => go(q.to, q.preset)}>
+            <span className="quick-icon">
+              <Icon name={q.icon} />
+            </span>
+            <span>{t(q.key)}</span>
+          </button>
+        ))}
+      </section>
+
+      {incoming.length > 0 && (
+        <button className="alert-card" onClick={() => go("requests")}>
+          <Icon name="requests" />
+          <span>
+            <strong>{t("home.requestsWaiting")}</strong>
+            <span className="muted small">
+              {incoming
+                .slice(0, 2)
+                .map((r) => `${r.counterparty} · ${money(r.amountMinor, r.currency)}`)
+                .join(" — ")}
+            </span>
+          </span>
+          <Icon name="chevron" />
+        </button>
       )}
 
-      <div className="card">
-        <span className="muted">Available balance</span>
-        <div className="balance" data-testid="available-balance">
-          {fmt(wallet.availableBalanceMinor)}
-        </div>
-        <div className="grid">
-          <div className="stat">
-            <span className="muted small">Ledger balance</span>
-            <strong>{fmt(wallet.ledgerBalanceMinor)}</strong>
+      {user.kycTier === "TIER_0" && !user.kycReviewPending && user.status === "ACTIVE" && (
+        <section className="nudge">
+          <Icon name="sparkle" size={22} />
+          <div>
+            <strong>{t("home.verifyTitle")}</strong>
+            <p className="muted small">{t("home.verifyBody")}</p>
           </div>
-          <div className="stat">
-            <span className="muted small">Reserved (processing)</span>
-            <strong>{fmt(wallet.reservedBalanceMinor)}</strong>
-          </div>
-          <div className="stat">
-            <span className="muted small">Sending to other wallets</span>
-            <strong>{fmt(wallet.pendingBalanceMinor)}</strong>
-          </div>
-        </div>
-      </div>
+          <button className="small" onClick={() => go("profile")}>
+            {t("home.verifyNow")}
+          </button>
+        </section>
+      )}
 
-      <div className="card">
-        <div className="spread">
-          <h3>Your limits</h3>
-          <span className="badge">{user.kycTier.replace("_", " ")}</span>
-        </div>
-        <div className="subcard">
-          <div className="spread small">
-            <span>Today</span>
-            <span>
-              {fmt(limits.dailyUsedMinor)} of {fmt(limits.dailyLimitMinor)}
-            </span>
-          </div>
-          <Meter used={limits.dailyUsedMinor} total={limits.dailyLimitMinor} />
-          <div className="spread small">
-            <span>Last 30 days</span>
-            <span>
-              {fmt(limits.monthlyUsedMinor)} of {fmt(limits.monthlyLimitMinor)}
-            </span>
-          </div>
-          <Meter used={limits.monthlyUsedMinor} total={limits.monthlyLimitMinor} />
-          <div className="spread small">
-            <span>Total holdings (wallet + savings)</span>
-            <span>
-              {fmt(limits.totalHoldingsMinor)} of {fmt(limits.maxBalanceMinor)}
-            </span>
-          </div>
-          <Meter used={limits.totalHoldingsMinor} total={limits.maxBalanceMinor} />
-          <span className="muted small">Single payment limit: {fmt(limits.perTransactionMinor)}</span>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="spread">
-          <h3>Notifications</h3>
-          {notes.some((n) => !n.read) && (
-            <button className="small ghost" onClick={() => api.markNotificationsRead().then(() => setNotes(notes.map((n) => ({ ...n, read: true }))))}>
-              Mark all read
+      <div className="two-col">
+        <section className="card">
+          <div className="spread">
+            <h3>{t("home.recent")}</h3>
+            <button className="link" onClick={() => go("activity")}>
+              {t("home.seeAll")}
             </button>
+          </div>
+          {recent.length === 0 ? (
+            <p className="muted">{t("home.noActivity")}</p>
+          ) : (
+            <ul className="tx-list">
+              {recent.map((tx) => (
+                <TxRow key={tx.id} tx={tx} />
+              ))}
+            </ul>
           )}
-        </div>
-        {notes.length === 0 ? (
-          <p className="muted">Nothing yet.</p>
-        ) : (
-          <ul className="list">
-            {notes.slice(0, 6).map((n) => (
-              <li key={n.id} style={{ fontWeight: n.read ? 400 : 600 }}>
-                <div className="spread">
-                  <span className={`badge ${n.kind === "SECURITY" ? "danger" : n.kind === "ACCOUNT" ? "warn" : "neutral"}`}>{n.kind}</span>
-                  <span className="muted small">{new Date(n.createdAt).toLocaleString()}</span>
+        </section>
+
+        <div className="stack">
+          <section className="card">
+            <div className="spread">
+              <h3>{t("home.limits")}</h3>
+              <span className="badge">{t(`tier.${user.kycTier}`)}</span>
+            </div>
+            {(
+              [
+                ["home.today", limits.dailyUsedMinor, limits.dailyLimitMinor],
+                ["home.last30", limits.monthlyUsedMinor, limits.monthlyLimitMinor],
+                ["home.holdings", limits.totalHoldingsMinor, limits.maxBalanceMinor],
+              ] as const
+            ).map(([key, used, total]) => (
+              <div key={key} className="limit">
+                <div className="spread small">
+                  <span>{t(key)}</span>
+                  <span className="muted">{t("home.usedOf", { used: fmt(used), limit: fmt(total) })}</span>
                 </div>
-                <span className="small">{n.message}</span>
-              </li>
+                <Meter used={used} total={total} />
+              </div>
             ))}
-          </ul>
-        )}
+            <span className="muted small">{t("home.perPayment", { amount: fmt(limits.perTransactionMinor) })}</span>
+          </section>
+
+          <section className="card">
+            <div className="spread">
+              <h3>
+                <Icon name="bell" size={16} /> {t("home.notifications")}
+              </h3>
+              {notes.some((n) => !n.read) && (
+                <button className="link" onClick={() => api.markNotificationsRead().then(() => setNotes(notes.map((n) => ({ ...n, read: true }))))}>
+                  {t("home.markRead")}
+                </button>
+              )}
+            </div>
+            {notes.length === 0 ? (
+              <p className="muted">{t("common.nothingYet")}</p>
+            ) : (
+              <ul className="note-list">
+                {notes.slice(0, 5).map((n) => (
+                  <li key={n.id} className={n.read ? undefined : "unread"}>
+                    <span className={`dot ${n.kind.toLowerCase()}`} />
+                    <div>
+                      <span className="small">{n.message}</span>
+                      <span className="muted small">{date(n.createdAt, true)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

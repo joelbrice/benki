@@ -292,7 +292,9 @@ export type ApiErrorCode =
   | "INSUFFICIENT_FUNDS"
   | "ACCOUNT_RESTRICTED"
   | "PROVIDER_UNAVAILABLE"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  /** Client-side only: the request never reached the API. */
+  | "NETWORK_ERROR";
 
 export interface ApiErrorBody {
   error: {

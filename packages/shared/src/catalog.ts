@@ -36,6 +36,8 @@ export interface Country {
   name: string;
   currency: string;
   callingCode: string;
+  /** Emoji flag for pickers. */
+  flag: string;
   mobileMoneyProviders: MobileMoneyProvider[];
   agents: Agent[];
   billers: Biller[];
@@ -48,6 +50,7 @@ const ACCOUNT = "^[0-9A-Z]{6,13}$";
 export const AFRICAN_COUNTRIES: Country[] = [
   {
     code: "KE",
+    flag: "🇰🇪",
     name: "Kenya",
     currency: "KES",
     callingCode: "+254",
@@ -67,6 +70,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "GH",
+    flag: "🇬🇭",
     name: "Ghana",
     currency: "GHS",
     callingCode: "+233",
@@ -89,6 +93,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "NG",
+    flag: "🇳🇬",
     name: "Nigeria",
     currency: "NGN",
     callingCode: "+234",
@@ -111,6 +116,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "TZ",
+    flag: "🇹🇿",
     name: "Tanzania",
     currency: "TZS",
     callingCode: "+255",
@@ -133,6 +139,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
   },
   {
     code: "SN",
+    flag: "🇸🇳",
     name: "Senegal",
     currency: "XOF",
     callingCode: "+221",

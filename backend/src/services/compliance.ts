@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { AdminAlert, AdminCase, RuleHit, StrReport } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -251,7 +252,7 @@ export function freezeUser(ctx: AppContext, userId: string, staff: StaffRow, rea
   withTx(ctx.db, () => {
     run(ctx.db, "UPDATE users SET status = 'FROZEN' WHERE id = ?", userId);
     revokeAllSessions(ctx, userId);
-    notify(ctx, userId, "ACCOUNT", "Your account has been restricted. Please contact support.");
+    notify(ctx, userId, "ACCOUNT", msg("notif.restricted"));
     audit(ctx, { actorType: "STAFF", actorId: staff.id, action: "USER_FROZEN", entityType: "user", entityId: userId, details: { reason } });
   });
 }
@@ -261,6 +262,6 @@ export function unfreezeUser(ctx: AppContext, userId: string, staffId: string) {
   if (user.status !== "FROZEN") throw conflict("Account is not frozen");
   if (user.screening_status === "CONFIRMED_MATCH") throw forbidden("A confirmed sanctions match can't be unfrozen");
   run(ctx.db, "UPDATE users SET status = 'ACTIVE' WHERE id = ?", userId);
-  notify(ctx, userId, "ACCOUNT", "Your account restrictions have been lifted.");
+  notify(ctx, userId, "ACCOUNT", msg("notif.unrestricted"));
   audit(ctx, { actorType: "STAFF", actorId: staffId, action: "USER_UNFROZEN", entityType: "user", entityId: userId });
 }

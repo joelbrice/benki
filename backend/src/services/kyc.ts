@@ -82,7 +82,7 @@ export function upgradeTier1(
     let message = "Verified — you're now Tier 1 with higher limits.";
     if (screening.status === "CLEAR") {
       run(ctx.db, "UPDATE users SET kyc_tier = 'TIER_1' WHERE id = ?", user.id);
-      notify(ctx, user.id, "ACCOUNT", "Identity verified. Your limits have been raised to Tier 1.");
+      notify(ctx, user.id, "ACCOUNT", msg("notif.kycTier1"));
     } else if (screening.status === "POTENTIAL_MATCH") {
       run(ctx.db, "UPDATE users SET kyc_review_pending = 1 WHERE id = ?", user.id);
       raiseAlert(ctx, { kind: "SCREENING", userId: user.id, transactionId: null, severity: "HIGH", hits });
@@ -118,7 +118,7 @@ export function upgradeTier2(
   }
   return withTx(ctx.db, () => {
     run(ctx.db, "UPDATE users SET kyc_tier = 'TIER_2', proof_of_address = 1, liveness_passed = 1 WHERE id = ?", user.id);
-    notify(ctx, user.id, "ACCOUNT", "Enhanced verification complete. You now have Tier 2 limits.");
+    notify(ctx, user.id, "ACCOUNT", msg("notif.kycTier2"));
     audit(ctx, { actorType: "USER", actorId: user.id, action: "KYC_TIER2_COMPLETED", entityType: "user", entityId: user.id });
     return { user: toUserProfile(getUser(ctx, user.id)!), message: "Verified — you're now Tier 2 with the highest limits." };
   });
@@ -142,10 +142,10 @@ export function resolveScreeningAlert(ctx: AppContext, alertId: string, staff: S
            kyc_tier = CASE WHEN kyc_tier = 'TIER_0' THEN 'TIER_1' ELSE kyc_tier END WHERE id = ?`,
         alert.user_id,
       );
-      notify(ctx, alert.user_id, "ACCOUNT", "Identity verified. Your limits have been raised to Tier 1.");
+      notify(ctx, alert.user_id, "ACCOUNT", msg("notif.kycTier1"));
     } else {
       run(ctx.db, "UPDATE users SET screening_status = 'CONFIRMED_MATCH', kyc_review_pending = 0, status = 'FROZEN' WHERE id = ?", alert.user_id);
-      notify(ctx, alert.user_id, "ACCOUNT", "Your account has been restricted. Please contact support.");
+      notify(ctx, alert.user_id, "ACCOUNT", msg("notif.restricted"));
     }
     run(ctx.db, "UPDATE alerts SET status = 'CLOSED', resolution = ?, closed_at = ? WHERE id = ?", `${decision}: ${note}`, now, alertId);
     audit(ctx, {

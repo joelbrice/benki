@@ -44,7 +44,7 @@ export function openDispute(ctx: AppContext, user: UserRow, transactionId: strin
       trimmed,
       ctx.nowIso(),
     );
-    notify(ctx, user.id, "TRANSACTION", `We received your dispute for ${transactionId}. We'll update you within 10 working days.`);
+    notify(ctx, user.id, "TRANSACTION", msg("notif.disputeReceived", { ref: transactionId }));
     audit(ctx, { actorType: "USER", actorId: user.id, action: "DISPUTE_OPENED", entityType: "dispute", entityId: id, details: { transactionId } });
     return toDispute(one<DisputeRow>(ctx.db, "SELECT * FROM disputes WHERE id = ?", id)!);
   });
@@ -84,7 +84,7 @@ export function rejectDispute(ctx: AppContext, staff: StaffRow, disputeId: strin
   if (resolution.trim().length < 10) throw badRequest("Explain the outcome to the customer (10+ characters)");
   withTx(ctx.db, () => {
     run(ctx.db, "UPDATE disputes SET status = 'RESOLVED_REJECTED', resolved_at = ?, resolution = ? WHERE id = ?", ctx.nowIso(), resolution.trim(), disputeId);
-    notify(ctx, row.user_id, "TRANSACTION", `Update on your dispute for ${row.transaction_id}: ${resolution.trim()}`);
+    notify(ctx, row.user_id, "TRANSACTION", msg("notif.disputeUpdate", { ref: row.transaction_id, resolution: resolution.trim() }));
     audit(ctx, { actorType: "STAFF", actorId: staff.id, action: "DISPUTE_REJECTED", entityType: "dispute", entityId: disputeId });
   });
 }

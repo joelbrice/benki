@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { Approval, ApprovalAction } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -92,7 +93,7 @@ function execute(ctx: AppContext, row: ApprovalRow, approver: StaffRow) {
           String(payload.disputeId),
         );
         const dispute = one<{ user_id: string }>(ctx.db, "SELECT user_id FROM disputes WHERE id = ?", String(payload.disputeId));
-        if (dispute) notify(ctx, dispute.user_id, "TRANSACTION", "Your dispute was upheld and the payment has been reversed.");
+        if (dispute) notify(ctx, dispute.user_id, "TRANSACTION", msg("notif.disputeUpheld"));
       }
       return;
     }

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { formatAmount, parseMajorToMinor, type SavingsGroup } from "@benki/shared";
-import { AmountField, Banner, useAction } from "../ui/common";
+import { parseMajorToMinor, type SavingsGroup } from "@benki/shared";
+import { useI18n } from "../i18n";
+import { AmountField, Banner, EmptyState, PageHeader, PinField, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
+import { Icon } from "../ui/icons";
 import type { Session } from "./session";
 
 /** Chama / tontine / susu: pooled savings released only by a member vote. */
 export function Groups({ session }: { session: Session }) {
+  const { t, money } = useI18n();
   const { api, wallet, user, country } = session;
   const [groups, setGroups] = useState<SavingsGroup[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -35,9 +38,9 @@ export function Groups({ session }: { session: Session }) {
 
   if (user.kycTier === "TIER_0") {
     return (
-      <div className="card">
-        <h2>Savings groups</h2>
-        <Banner tone="warn">Verify your identity (Tier 1) in Profile to join or start a savings group.</Banner>
+      <div className="stack">
+        <PageHeader title={t("groups.title")} subtitle={t("groups.intro")} />
+        <Banner tone="warn">{t("groups.tier")}</Banner>
       </div>
     );
   }
@@ -52,10 +55,10 @@ export function Groups({ session }: { session: Session }) {
         onChanged={(g) => setGroups(groups.map((x) => (x.groupId === g.groupId ? g : x)))}
         onContribute={(amountMinor) =>
           setIntent({
-            title: `Contribute to ${group.name}`,
+            title: t("groups.contributeTo", { group: group.name }),
             rows: [
-              ["Group", group.name],
-              ["Amount", formatAmount(amountMinor, wallet.currency)],
+              [t("groups.name"), group.name],
+              [t("common.amount"), money(amountMinor, wallet.currency)],
             ],
             currency: wallet.currency,
             amountMinor,
@@ -69,38 +72,32 @@ export function Groups({ session }: { session: Session }) {
   }
 
   return (
-    <>
-      <div className="card">
-        <h2>Savings groups</h2>
-        <p className="muted">
-          Save together with family, friends or your chama. Money sits in a shared pool and is only paid out when enough members approve.
-        </p>
-        {groups.length === 0 && <p className="muted">You're not in any groups yet.</p>}
-        <ul className="list">
-          {groups.map((g) => {
-            const pending = g.payoutRequests.filter((p) => p.status === "PENDING" && !p.myVote && p.recipientUserId !== user.userId).length;
-            return (
-              <li key={g.groupId}>
-                <button className="ghost" style={{ width: "100%", textAlign: "left" }} onClick={() => setOpenId(g.groupId)}>
-                  <div className="spread">
-                    <strong>{g.name}</strong>
-                    <span>{formatAmount(g.poolBalanceMinor, g.currency)}</span>
-                  </div>
-                  <span className="muted small">
-                    {g.members.length} members · {g.myRole === "ADMIN" ? "You're the admin" : "Member"}
-                    {pending > 0 && ` · ${pending} vote${pending > 1 ? "s" : ""} waiting for you`}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+    <div className="stack">
+      <PageHeader title={t("groups.title")} subtitle={t("groups.intro")} />
+      {groups.length === 0 && <EmptyState icon="groups" text={t("groups.empty")} />}
+      <div className="card-grid">
+        {groups.map((g) => {
+          const waiting = g.payoutRequests.some((p) => p.status === "PENDING" && !p.myVote && p.recipientUserId !== user.userId);
+          return (
+            <button key={g.groupId} className="card group-card" onClick={() => setOpenId(g.groupId)}>
+              <div className="spread">
+                <strong>{g.name}</strong>
+                <Icon name="chevron" />
+              </div>
+              <span className="currency-amount">{money(g.poolBalanceMinor, g.currency)}</span>
+              <span className="muted small">
+                {t("groups.members", { count: g.members.length })} · {g.myRole === "ADMIN" ? t("groups.admin") : t("groups.member")}
+              </span>
+              {waiting && <span className="badge warn">{t("groups.votesWaiting")}</span>}
+            </button>
+          );
+        })}
       </div>
-      <div className="card">
-        <h3>Start a group</h3>
+      <section className="card">
+        <h3>{t("groups.start")}</h3>
         <label htmlFor="group-name">
-          Group name
-          <input id="group-name" maxLength={40} value={name} placeholder={`e.g. ${country.code === "KE" ? "Umoja Chama" : "Tontine des amies"}`} onChange={(e) => setName(e.target.value)} />
+          {t("groups.name")}
+          <input id="group-name" maxLength={40} value={name} placeholder={country.code === "SN" ? "Tontine des amies" : "Umoja Chama"} onChange={(e) => setName(e.target.value)} />
         </label>
         {error && <Banner tone="error">{error}</Banner>}
         <button
@@ -114,10 +111,10 @@ export function Groups({ session }: { session: Session }) {
             })
           }
         >
-          Create group
+          {t("groups.create")}
         </button>
-      </div>
-    </>
+      </section>
+    </div>
   );
 }
 
@@ -134,6 +131,7 @@ function GroupDetail({
   onChanged: (g: SavingsGroup) => void;
   onContribute: (amountMinor: number) => void;
 }) {
+  const { t, money } = useI18n();
   const { api, user, country } = session;
   const [contribution, setContribution] = useState("");
   const [memberPhone, setMemberPhone] = useState(country.callingCode);
@@ -142,16 +140,10 @@ function GroupDetail({
   const [reason, setReason] = useState("");
   const [pin, setPin] = useState("");
   const { busy, error, run } = useAction();
-  const fmt = (n: number) => formatAmount(n, group.currency);
+  const fmt = (n: number) => money(n, group.currency);
   const contributionMinor = parseMajorToMinor(contribution, group.currency);
   const payoutMinor = parseMajorToMinor(payoutAmount, group.currency);
   const pending = group.payoutRequests.find((p) => p.status === "PENDING");
-  const pinField = (
-    <label htmlFor="group-pin">
-      Transaction PIN
-      <input id="group-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={6} value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
-    </label>
-  );
   const act = (fn: () => Promise<{ group: SavingsGroup }>) =>
     run(async () => {
       onChanged((await fn()).group);
@@ -161,140 +153,145 @@ function GroupDetail({
     });
 
   return (
-    <>
-      <div className="card">
-        <div className="spread">
-          <h2>{group.name}</h2>
-          <button className="ghost small" onClick={onBack}>
-            ← All groups
-          </button>
-        </div>
-        <div className="subcard stat">
-          <span className="muted">Pool balance</span>
-          <strong style={{ fontSize: "1.6rem" }}>{fmt(group.poolBalanceMinor)}</strong>
-          <span className="muted small">Payouts need {group.approvalsRequired} member approval{group.approvalsRequired === 1 ? "" : "s"}. Nobody can approve a payout to themselves.</span>
-        </div>
-        <AmountField id="group-contribution" label="Contribute" currency={group.currency} value={contribution} onChange={setContribution} />
-        <button disabled={!contributionMinor} onClick={() => onContribute(contributionMinor!)}>
-          Review contribution
-        </button>
-      </div>
+    <div className="stack">
+      <button className="link-back" onClick={onBack}>
+        ← {t("groups.all")}
+      </button>
+      <section className="balance-card compact">
+        <span className="greeting">{group.name}</span>
+        <span className="balance-label">{t("groups.pool")}</span>
+        <div className="balance">{fmt(group.poolBalanceMinor)}</div>
+        <span className="balance-note">{t("groups.quorum", { count: group.approvalsRequired })}</span>
+      </section>
 
-      {pending && (
-        <div className="card">
-          <h3>Payout waiting for votes</h3>
-          <p>
-            <strong>{fmt(pending.amountMinor)}</strong> to <strong>{pending.recipientName}</strong> — “{pending.reason}”
-          </p>
-          <p className="muted small">
-            Requested by {pending.requestedBy} · {pending.approvals} of {group.approvalsRequired} approvals · {pending.rejections} against
-          </p>
-          {pending.recipientUserId === user.userId ? (
-            <Banner tone="info">This payout is to you, so the other members decide.</Banner>
-          ) : pending.myVote ? (
-            <Banner tone="info">You voted to {pending.myVote === "APPROVE" ? "approve" : "reject"}.</Banner>
-          ) : (
-            <>
-              {pinField}
-              <div className="row">
-                <button disabled={busy || pin.length < 4} onClick={() => act(() => api.votePayout(group.groupId, pending.requestId, true, pin))}>
-                  Approve
-                </button>
-                <button className="secondary" disabled={busy || pin.length < 4} onClick={() => act(() => api.votePayout(group.groupId, pending.requestId, false, pin))}>
-                  Reject
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {!pending && group.members.length > 1 && (
-        <div className="card">
-          <h3>Request a payout</h3>
-          <label htmlFor="payout-recipient">
-            Pay to
-            <select id="payout-recipient" value={recipient} onChange={(e) => setRecipient(e.target.value)}>
-              {group.members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.displayName}
-                  {m.userId === user.userId ? " (you)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <AmountField id="payout-amount" currency={group.currency} value={payoutAmount} onChange={setPayoutAmount} />
-          <label htmlFor="payout-reason">
-            Reason
-            <input id="payout-reason" maxLength={140} value={reason} placeholder="e.g. Merry-go-round: March turn" onChange={(e) => setReason(e.target.value)} />
-          </label>
-          {pinField}
-          <button
-            disabled={busy || !payoutMinor || reason.trim().length < 3 || pin.length < 4}
-            onClick={() => act(() => api.requestPayout(group.groupId, { pin, recipientUserId: recipient, amountMinor: payoutMinor!, reason }))}
-          >
-            Ask members to approve
-          </button>
-        </div>
-      )}
-
-      {error && <Banner tone="error">{error}</Banner>}
-
-      <div className="card">
-        <h3>Members</h3>
-        <ul className="list">
-          {group.members.map((m) => (
-            <li key={m.userId}>
-              <div className="spread">
-              <span>
-                {m.displayName} {m.role === "ADMIN" && <span className="badge neutral">Admin</span>}
-              </span>
-              <span className="muted small">contributed {fmt(m.contributedMinor)}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {group.myRole === "ADMIN" && (
-          <>
-            <label htmlFor="member-phone">
-              Add a member by phone number
-              <input id="member-phone" inputMode="tel" value={memberPhone} onChange={(e) => setMemberPhone(e.target.value.replace(/[^\d+]/g, ""))} />
-            </label>
-            <button
-              className="secondary"
-              disabled={busy || memberPhone.length < 9}
-              onClick={() =>
-                run(async () => {
-                  onChanged((await api.addGroupMember(group.groupId, memberPhone)).group);
-                  setMemberPhone(country.callingCode);
-                })
-              }
-            >
-              Add member
+      <div className="two-col">
+        <div className="stack">
+          <section className="card">
+            <h3>{t("groups.contribute")}</h3>
+            <AmountField id="group-contribution" currency={group.currency} value={contribution} onChange={setContribution} />
+            <button disabled={!contributionMinor} onClick={() => onContribute(contributionMinor!)}>
+              {t("groups.reviewContribution")}
             </button>
-          </>
-        )}
-      </div>
+          </section>
 
-      {group.payoutRequests.some((p) => p.status !== "PENDING") && (
-        <div className="card">
-          <h3>Past payouts</h3>
-          <ul className="list">
-            {group.payoutRequests
-              .filter((p) => p.status !== "PENDING")
-              .map((p) => (
-                <li key={p.requestId}>
-                  <div className="spread">
-                  <span>
-                    {fmt(p.amountMinor)} to {p.recipientName} <span className="muted small">· {p.reason}</span>
-                  </span>
-                  <span className={`badge ${p.status === "EXECUTED" ? "" : "danger"}`}>{p.status === "EXECUTED" ? "Paid" : "Not approved"}</span>
+          {pending ? (
+            <section className="card highlight">
+              <h3>{t("groups.pendingTitle")}</h3>
+              <p>
+                <strong>{t("groups.pendingLine", { amount: fmt(pending.amountMinor), name: pending.recipientName })}</strong> — “{pending.reason}”
+              </p>
+              <p className="muted small">
+                {t("groups.requestedBy", { name: pending.requestedBy })} ·{" "}
+                {t("groups.tally", { approvals: pending.approvals, required: group.approvalsRequired, rejections: pending.rejections })}
+              </p>
+              {pending.recipientUserId === user.userId ? (
+                <Banner tone="info">{t("groups.toYou")}</Banner>
+              ) : pending.myVote ? (
+                <Banner tone="info">{t("groups.youVoted")}</Banner>
+              ) : (
+                <>
+                  <PinField id="group-pin" value={pin} onChange={setPin} />
+                  <div className="button-pair">
+                    <button disabled={busy || pin.length < 4} onClick={() => act(() => api.votePayout(group.groupId, pending.requestId, true, pin))}>
+                      {t("groups.approve")}
+                    </button>
+                    <button className="secondary" disabled={busy || pin.length < 4} onClick={() => act(() => api.votePayout(group.groupId, pending.requestId, false, pin))}>
+                      {t("groups.reject")}
+                    </button>
                   </div>
+                </>
+              )}
+            </section>
+          ) : (
+            group.members.length > 1 && (
+              <section className="card">
+                <h3>{t("groups.requestPayout")}</h3>
+                <label htmlFor="payout-recipient">
+                  {t("groups.payTo")}
+                  <select id="payout-recipient" value={recipient} onChange={(e) => setRecipient(e.target.value)}>
+                    {group.members.map((m) => (
+                      <option key={m.userId} value={m.userId}>
+                        {m.displayName}
+                        {m.userId === user.userId ? ` (${t("common.you")})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <AmountField id="payout-amount" currency={group.currency} value={payoutAmount} onChange={setPayoutAmount} />
+                <label htmlFor="payout-reason">
+                  {t("groups.reason")}
+                  <input id="payout-reason" maxLength={140} value={reason} placeholder={t("groups.reasonHint")} onChange={(e) => setReason(e.target.value)} />
+                </label>
+                <PinField id="group-pin" value={pin} onChange={setPin} />
+                <button
+                  disabled={busy || !payoutMinor || reason.trim().length < 3 || pin.length < 4}
+                  onClick={() => act(() => api.requestPayout(group.groupId, { pin, recipientUserId: recipient, amountMinor: payoutMinor!, reason }))}
+                >
+                  {t("groups.ask")}
+                </button>
+              </section>
+            )
+          )}
+          {error && <Banner tone="error">{error}</Banner>}
+        </div>
+
+        <div className="stack">
+          <section className="card">
+            <h3>{t("groups.membersTitle")}</h3>
+            <ul className="member-list">
+              {group.members.map((m) => (
+                <li key={m.userId}>
+                  <span className="avatar small">{m.displayName.slice(0, 1).toUpperCase()}</span>
+                  <span className="grow">
+                    {m.displayName} {m.role === "ADMIN" && <span className="badge neutral">{t("groups.admin")}</span>}
+                  </span>
+                  <span className="muted small">{t("groups.contributed", { amount: fmt(m.contributedMinor) })}</span>
                 </li>
               ))}
-          </ul>
+            </ul>
+            {group.myRole === "ADMIN" && (
+              <>
+                <label htmlFor="member-phone">
+                  {t("groups.addMember")}
+                  <input id="member-phone" inputMode="tel" value={memberPhone} onChange={(e) => setMemberPhone(e.target.value.replace(/[^\d+]/g, ""))} />
+                </label>
+                <button
+                  className="secondary"
+                  disabled={busy || memberPhone.length < 9}
+                  onClick={() =>
+                    run(async () => {
+                      onChanged((await api.addGroupMember(group.groupId, memberPhone)).group);
+                      setMemberPhone(country.callingCode);
+                    })
+                  }
+                >
+                  {t("groups.add")}
+                </button>
+              </>
+            )}
+          </section>
+
+          {group.payoutRequests.some((p) => p.status !== "PENDING") && (
+            <section className="card">
+              <h3>{t("groups.past")}</h3>
+              <ul className="plain-list">
+                {group.payoutRequests
+                  .filter((p) => p.status !== "PENDING")
+                  .map((p) => (
+                    <li key={p.requestId}>
+                      <div className="spread">
+                        <span>
+                          {t("groups.pendingLine", { amount: fmt(p.amountMinor), name: p.recipientName })} <span className="muted small">· {p.reason}</span>
+                        </span>
+                        <span className={`badge ${p.status === "EXECUTED" ? "" : "danger"}`}>{p.status === "EXECUTED" ? t("groups.paid") : t("groups.notApproved")}</span>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          )}
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }

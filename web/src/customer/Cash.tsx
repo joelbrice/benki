@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { formatAmount, parseMajorToMinor } from "@benki/shared";
-import { AmountField } from "../ui/common";
+import { parseMajorToMinor } from "@benki/shared";
+import { useI18n } from "../i18n";
+import { AmountField, PageHeader } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
+import { Icon } from "../ui/icons";
 import type { Session } from "./session";
 
 export function Cash({ session }: { session: Session }) {
+  const { t, money } = useI18n();
   const { api, country, wallet } = session;
   const [agentId, setAgentId] = useState(country.agents[0].id);
   const [amount, setAmount] = useState("");
@@ -30,10 +33,10 @@ export function Cash({ session }: { session: Session }) {
   const start = (direction: "in" | "out") => {
     if (!amountMinor) return;
     setIntent({
-      title: direction === "in" ? "Deposit cash" : "Withdraw cash",
+      title: direction === "in" ? t("cash.depositTitle") : t("cash.withdrawTitle"),
       rows: [
-        ["Agent", `${agent.name}, ${agent.location}`],
-        ["Amount", formatAmount(amountMinor, wallet.currency)],
+        [t("cash.agent"), `${agent.name}, ${agent.location}`],
+        [t("common.amount"), money(amountMinor, wallet.currency)],
       ],
       currency: wallet.currency,
       amountMinor,
@@ -47,27 +50,30 @@ export function Cash({ session }: { session: Session }) {
   };
 
   return (
-    <div className="card">
-      <h2>Cash in / cash out</h2>
-      <p className="muted">Visit a Benki agent to turn cash into e-money or back. Deposits are free; withdrawals cost 0.5%.</p>
-      <label htmlFor="agent">
-        Agent
-        <select id="agent" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+    <div className="stack">
+      <PageHeader title={t("cash.title")} subtitle={t("cash.intro")} />
+      <div className="card">
+        <span className="muted small">{t("cash.agent")}</span>
+        <div className="agent-list" role="radiogroup" aria-label={t("cash.agent")}>
           {country.agents.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} — {a.location}
-            </option>
+            <button key={a.id} role="radio" aria-checked={a.id === agentId} className={`agent${a.id === agentId ? " active" : ""}`} onClick={() => setAgentId(a.id)}>
+              <Icon name="store" size={18} />
+              <span>
+                <strong>{a.name}</strong>
+                <span className="muted small">{a.location}</span>
+              </span>
+            </button>
           ))}
-        </select>
-      </label>
-      <AmountField id="cash-amount" currency={wallet.currency} value={amount} onChange={setAmount} />
-      <div className="row">
-        <button disabled={!amountMinor} onClick={() => start("in")}>
-          Deposit
-        </button>
-        <button className="secondary" disabled={!amountMinor} onClick={() => start("out")}>
-          Withdraw
-        </button>
+        </div>
+        <AmountField id="cash-amount" currency={wallet.currency} value={amount} onChange={setAmount} />
+        <div className="button-pair">
+          <button disabled={!amountMinor} onClick={() => start("in")}>
+            {t("cash.deposit")}
+          </button>
+          <button className="secondary" disabled={!amountMinor} onClick={() => start("out")}>
+            {t("cash.withdraw")}
+          </button>
+        </div>
       </div>
     </div>
   );

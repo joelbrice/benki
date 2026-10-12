@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { formatAmount, type PaymentResponse } from "@benki/shared";
+import type { PaymentResponse } from "@benki/shared";
 import { newIdempotencyKey, type CustomerApi } from "../api";
-import { Banner, useAction } from "./common";
+import { useI18n } from "../i18n";
+import { Banner, PinField, useAction } from "./common";
+import { Icon } from "./icons";
 
 export interface PaymentIntent {
   title: string;
@@ -18,17 +20,8 @@ export interface PaymentIntent {
  * Review → PIN → submit. The idempotency key is created once per intent, so
  * retrying after a timeout or error can't charge the customer twice.
  */
-export function ConfirmPayment({
-  api,
-  intent,
-  onDone,
-  onCancel,
-}: {
-  api: CustomerApi;
-  intent: PaymentIntent;
-  onDone: () => void;
-  onCancel: () => void;
-}) {
+export function ConfirmPayment({ api, intent, onDone, onCancel }: { api: CustomerApi; intent: PaymentIntent; onDone: () => void; onCancel: () => void }) {
+  const { t, money } = useI18n();
   const key = useRef(newIdempotencyKey());
   const [pin, setPin] = useState("");
   const [fee, setFee] = useState<number | null>(intent.feeType ? null : 0);
@@ -41,68 +34,57 @@ export function ConfirmPayment({
   }, [api, intent.feeType, intent.amountMinor]);
 
   if (result) {
-    const tone = result.transaction.status === "COMPLETED" ? "success" : result.transaction.status === "FAILED" ? "error" : "warn";
+    const status = result.transaction.status;
+    const ok = status === "COMPLETED";
+    const failed = status === "FAILED";
     return (
-      <div className="card">
+      <div className="card result">
+        <div className={`result-icon ${ok ? "ok" : failed ? "bad" : "wait"}`}>
+          <Icon name={ok ? "check" : failed ? "x" : "activity"} size={30} />
+        </div>
         <h2>{intent.title}</h2>
-        <Banner tone={tone}>{result.message}</Banner>
+        <p className="result-message">{result.message}</p>
         {result.transaction.token && (
-          <div className="subcard">
-            <span className="muted">Meter token</span>
-            <strong className="mono" style={{ fontSize: "1.1rem" }}>
-              {result.transaction.token}
-            </strong>
+          <div className="subcard token">
+            <span className="muted">{t("pay.meterToken")}</span>
+            <strong className="mono">{result.transaction.token}</strong>
           </div>
         )}
-        <p className="muted small">Reference {result.transaction.id}</p>
-        <button onClick={onDone}>Done</button>
+        <p className="muted small mono">{t("common.reference", { ref: result.transaction.id })}</p>
+        <button onClick={onDone}>{t("common.done")}</button>
       </div>
     );
   }
 
   const rows: [string, string][] = [...intent.rows];
   if (intent.feeType) {
-    rows.push(["Fee", fee === null ? "…" : fee === 0 ? "Free" : formatAmount(fee, intent.currency)]);
-    if (fee !== null) rows.push(["Total", formatAmount(intent.amountMinor + fee, intent.currency)]);
+    rows.push([t("common.fee"), fee === null ? "…" : fee === 0 ? t("common.free") : money(fee, intent.currency)]);
+    if (fee !== null) rows.push([t("common.total"), money(intent.amountMinor + fee, intent.currency)]);
   }
 
   return (
     <div className="card">
-      <h2>Review: {intent.title}</h2>
+      <button className="link-back" onClick={onCancel} disabled={busy}>
+        ← {t("common.back")}
+      </button>
+      <h2>{t("confirm.review", { title: intent.title })}</h2>
       <dl className="summary">
-        {rows.map(([k, v]) => (
-          <div key={k} style={{ display: "contents" }}>
+        {rows.map(([k, v], i) => (
+          <div key={k} className={i === rows.length - 1 && intent.feeType ? "summary-total" : undefined} style={{ display: "contents" }}>
             <dt>{k}</dt>
             <dd>{v}</dd>
           </div>
         ))}
       </dl>
-      {intent.requirePin && (
-        <label htmlFor="confirm-pin">
-          Transaction PIN
-          <input
-            id="confirm-pin"
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-          />
-        </label>
-      )}
+      {intent.requirePin && <PinField id="confirm-pin" value={pin} onChange={setPin} />}
       {error && <Banner tone="error">{error}</Banner>}
-      <div className="row">
-        <button
-          disabled={busy || (intent.requirePin && pin.length < 4) || fee === null}
-          onClick={() => run(async () => setResult(await intent.submit(pin, key.current)))}
-        >
-          {busy ? "Sending…" : "Confirm"}
-        </button>
-        <button className="ghost" disabled={busy} onClick={onCancel}>
-          Back
-        </button>
-      </div>
+      <button
+        className="block"
+        disabled={busy || (intent.requirePin && pin.length < 4) || fee === null}
+        onClick={() => run(async () => setResult(await intent.submit(pin, key.current)))}
+      >
+        {busy ? t("common.sending") : t("common.confirm")}
+      </button>
     </div>
   );
 }

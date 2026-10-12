@@ -1,38 +1,34 @@
 import { useState } from "react";
 import type { CustomerApi } from "../api";
-import { Banner, useAction } from "../ui/common";
+import { useI18n } from "../i18n";
+import { Banner, PinField, useAction } from "../ui/common";
 
 export function SetPin({ api, onDone }: { api: CustomerApi; onDone: () => void }) {
+  const { t } = useI18n();
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const { busy, error, setError, run } = useAction();
-  const digits = (v: string) => v.replace(/\D/g, "").slice(0, 6);
 
   return (
-    <div className="card">
-      <h2>Create your transaction PIN</h2>
-      <p className="muted">You'll enter this PIN to approve every payment. Avoid birthdays, repeated digits (1111) or sequences (1234).</p>
-      <label htmlFor="new-pin">
-        PIN (4–6 digits)
-        <input id="new-pin" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(digits(e.target.value))} />
-      </label>
-      <label htmlFor="confirm-new-pin">
-        Confirm PIN
-        <input id="confirm-new-pin" type="password" inputMode="numeric" value={confirm} onChange={(e) => setConfirm(digits(e.target.value))} />
-      </label>
+    <>
+      <h2>{t("setPin.title")}</h2>
+      <p className="muted">{t("setPin.body")}</p>
+      <PinField id="new-pin" label={t("setPin.pin")} value={pin} onChange={setPin} />
+      <PinField id="confirm-new-pin" label={t("setPin.confirm")} value={confirm} onChange={setConfirm} />
       {error && <Banner tone="error">{error}</Banner>}
       <button
+        className="block"
         disabled={busy || pin.length < 4}
         onClick={() => {
-          if (pin !== confirm) return setError("The PINs don't match");
-          run(async () => {
+          if (pin !== confirm) return setError(t("setPin.mismatch"));
+          void run(async () => {
             await api.setPin(pin);
             onDone();
           });
         }}
       >
-        Save PIN
+        {t("setPin.save")}
       </button>
-    </div>
+    </>
   );
 }

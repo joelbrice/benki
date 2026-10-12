@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
 import { AFRICAN_COUNTRIES, USSD_SHORT_CODE } from "@benki/shared";
 import { ussdDial } from "../api";
+import { useI18n } from "../i18n";
+import { LanguageSelect } from "../ui/LanguageSelect";
 
 /**
  * A feature phone in the browser. Sends the same callbacks a USSD aggregator
@@ -8,6 +10,7 @@ import { ussdDial } from "../api";
  * simulator endpoint.
  */
 export function UssdSimulator() {
+  const { t } = useI18n();
   const [phone, setPhone] = useState(`${AFRICAN_COUNTRIES[0].callingCode}7`);
   const [screen, setScreen] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -34,69 +37,64 @@ export function UssdSimulator() {
   const isPinPrompt = !!screen && /PIN/i.test(screen.split("\n").pop() ?? "");
 
   return (
-    <div className="shell">
-      <header className="topbar">
-        <div className="brand">
-          <strong>Benki</strong>
-          <span>USSD simulator</span>
+    <div className="auth-shell">
+      <div className="auth-card wide">
+        <div className="auth-top">
+          <a className="link-back" href="#/">
+            ← {t("ussdSim.backToApp")}
+          </a>
+          <LanguageSelect compact />
         </div>
-        <a className="small" href="#/">
-          ← Back to the app
-        </a>
-      </header>
-      <div className="card">
-        <p className="muted">
-          Benki works on any phone — no data or smartphone needed. Dial <strong>{USSD_SHORT_CODE}</strong> to register, check your balance, send
-          money, buy airtime, withdraw cash or get a mini statement. This simulator is only available in development.
-        </p>
+        <h1>{t("ussdSim.title")}</h1>
+        <p className="muted">{t("ussdSim.intro", { code: USSD_SHORT_CODE })}</p>
         <label htmlFor="ussd-phone">
-          Your phone number
+          {t("ussdSim.phone")}
           <input id="ussd-phone" inputMode="tel" value={phone} disabled={open} onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))} />
         </label>
-      </div>
-      <div className="phone" aria-label="Feature phone">
-        <div className="phone-screen" role="log" aria-live="polite">
-          {screen === null ? <span className="muted">Dial {USSD_SHORT_CODE}</span> : <pre>{screen}</pre>}
+        <div className="phone" aria-label="Feature phone">
+          <div className="phone-screen" role="log" aria-live="polite">
+            {screen === null ? <span className="muted">{t("ussdSim.dial", { code: USSD_SHORT_CODE })}</span> : <pre>{screen}</pre>}
+          </div>
+          {open ? (
+            <form
+              className="phone-input"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (input) void send([...session.current.replies, input]);
+              }}
+            >
+              <input
+                aria-label={t("ussdSim.reply")}
+                autoFocus
+                type={isPinPrompt ? "password" : "text"}
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={24}
+                value={input}
+                onChange={(e) => setInput(e.target.value.replace(/[^0-9+]/g, ""))}
+              />
+              <div className="button-pair">
+                <button type="submit" disabled={busy || !input}>
+                  {t("ussdSim.send")}
+                </button>
+                <button
+                  type="button"
+                  className="ghost on-dark"
+                  onClick={() => {
+                    setOpen(false);
+                    setScreen(null);
+                  }}
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button disabled={busy || phone.length < 10} onClick={dial}>
+              {busy ? t("ussdSim.dialling") : t("ussdSim.call", { code: USSD_SHORT_CODE })}
+            </button>
+          )}
         </div>
-        {open ? (
-          <form
-            className="phone-input"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (input) void send([...session.current.replies, input]);
-            }}
-          >
-            <input
-              aria-label="Reply"
-              autoFocus
-              type={isPinPrompt ? "password" : "text"}
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={24}
-              value={input}
-              onChange={(e) => setInput(e.target.value.replace(/[^0-9+]/g, ""))}
-            />
-            <div className="row">
-              <button type="submit" disabled={busy || !input}>
-                Send
-              </button>
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => {
-                  setOpen(false);
-                  setScreen(null);
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button disabled={busy || phone.length < 10} onClick={dial}>
-            {busy ? "Dialling…" : `Call ${USSD_SHORT_CODE}`}
-          </button>
-        )}
       </div>
     </div>
   );

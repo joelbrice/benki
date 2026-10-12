@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminConsole } from "./admin/AdminConsole";
 import { CustomerApp } from "./customer/CustomerApp";
+import { I18nProvider } from "./i18n";
 import { UssdSimulator } from "./ussd/UssdSimulator";
 
 function useHash() {
@@ -15,7 +16,9 @@ function useHash() {
 
 export default function App() {
   const hash = useHash();
-  if (hash.startsWith("#/admin")) return <AdminConsole />;
-  if (hash.startsWith("#/ussd")) return <UssdSimulator />;
-  return <CustomerApp />;
+  return (
+    <I18nProvider>
+      {hash.startsWith("#/admin") ? <AdminConsole /> : hash.startsWith("#/ussd") ? <UssdSimulator /> : <CustomerApp />}
+    </I18nProvider>
+  );
 }
