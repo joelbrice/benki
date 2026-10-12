@@ -4,7 +4,10 @@ import {
   COUNTRY_BY_CODE,
   customerFeeMinor,
   FEE_SCHEDULE,
+  LOCALE_CODES,
+  POCKET_CURRENCIES,
   PURPOSE_CODES,
+  type Locale,
   type FeeBearingType,
   type FeeQuote,
   type NameEnquiryResponse,
@@ -44,6 +47,8 @@ import {
 import { addMember, createGroup, draftContribution, getGroup, listGroups, requestPayout, votePayout } from "../services/groups";
 import { applyRepayment, draftLoanDisbursement, draftLoanRepayment, listLoans, loanOffer, recordLoan } from "../services/loans";
 import { changePin, setPin, verifyPin } from "../services/pin";
+import { draftConversion, listPockets, openPocket, quoteConversion } from "../services/pockets";
+import { cancelRequest, createRequest, declineRequest, draftRequestPayment, listRequests, markRequestPaid } from "../services/requests";
 import { runPayment, type PaymentRequest } from "../services/pipeline";
 import { createVault, listVaults } from "../services/savings";
 import { statementCsv } from "../services/statements";
@@ -150,6 +155,11 @@ export function customerRoutes(ctx: AppContext): Router {
     const body = parse(z.object({ pin }), req.body);
     setPin(ctx, req.user!, body.pin);
     res.status(201).json({ user: toUserProfile(getUser(ctx, req.user!.id)!) });
+  });
+  root.post("/me/locale", authed, (req, res) => {
+    const body = parse(z.object({ locale: z.enum(LOCALE_CODES as [Locale, ...Locale[]]) }), req.body);
+    run(ctx.db, "UPDATE users SET locale = ? WHERE id = ?", body.locale, req.user!.id);
+    res.json({ user: toUserProfile(getUser(ctx, req.user!.id)!) });
   });
   root.post("/me/pin/change", authed, rateLimit(ctx, "pin-change", 5, 60_000), (req, res) => {
     const body = parse(z.object({ currentPin: pin, newPin: pin }), req.body);
@@ -356,6 +366,68 @@ export function customerRoutes(ctx: AppContext): Router {
       }),
     );
   }
+
+  // --- Multi-currency pockets ---------------------------------------------------------
+  root.get("/pockets", authed, (req, res) => {
+    res.json({ pockets: listPockets(ctx, req.user!) });
+  });
+  root.post("/pockets", authed, rateLimit(ctx, "pockets", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ currency: z.enum(POCKET_CURRENCIES) }), req.body);
+    res.status(201).json({ pockets: openPocket(ctx, getUser(ctx, req.user!.id)!, body.currency) });
+  });
+  root.post("/pockets/quote", authed, rateLimit(ctx, "fx-quote", 30, 60_000), (req, res) => {
+    const body = parse(z.object({ fromCurrency: z.string().length(3), toCurrency: z.string().length(3), sellAmountMinor: amountMinor }), req.body);
+    res.status(201).json(quoteConversion(ctx, req.user!, body));
+  });
+  root.post(
+    "/pockets/convert",
+    authed,
+    moneyLimiter,
+    asyncHandler(async (req, res) => {
+      const body = parse(z.object({ idempotencyKey, pin, quoteId: z.string() }), req.body);
+      await executePayment(
+        ctx,
+        req,
+        res,
+        "fx-conversion",
+        body,
+        { requirePin: true, afterPosted: () => ({ pockets: listPockets(ctx, getUser(ctx, req.user!.id)!) }) },
+        (u, d) => draftConversion(ctx, u, body.quoteId, d),
+      );
+    }),
+  );
+
+  // --- Payment requests ------------------------------------------------------------
+  root.get("/requests", authed, (req, res) => {
+    res.json({ requests: listRequests(ctx, req.user!.id) });
+  });
+  root.post("/requests", authed, rateLimit(ctx, "requests", 10, 60_000), (req, res) => {
+    const body = parse(z.object({ payerPhoneNumber: e164Phone, amountMinor, note }), req.body);
+    res.status(201).json({ request: createRequest(ctx, req.user!, body) });
+  });
+  root.post(
+    "/requests/:requestId/pay",
+    authed,
+    moneyLimiter,
+    asyncHandler(async (req, res) => {
+      const body = parse(z.object({ idempotencyKey, pin }), req.body);
+      await executePayment(
+        ctx,
+        req,
+        res,
+        "request-pay",
+        { ...body, requestId: req.params.requestId },
+        { requirePin: true, afterPosted: (tx) => ({ request: markRequestPaid(ctx, tx) }) },
+        (u, d) => draftRequestPayment(ctx, u, req.params.requestId, d),
+      );
+    }),
+  );
+  root.post("/requests/:requestId/decline", authed, (req, res) => {
+    res.json({ request: declineRequest(ctx, req.user!, req.params.requestId) });
+  });
+  root.post("/requests/:requestId/cancel", authed, (req, res) => {
+    res.json({ request: cancelRequest(ctx, req.user!, req.params.requestId) });
+  });
 
   // --- Nano-loans -------------------------------------------------------------------
   root.get("/loans/offer", authed, (req, res) => {

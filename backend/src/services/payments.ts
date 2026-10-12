@@ -86,6 +86,7 @@ const TYPE_LABEL: Record<TransactionType, string> = {
   LOAN_REPAYMENT: "Loan repayment",
   GROUP_CONTRIBUTION: "Group contribution",
   GROUP_PAYOUT: "Group payout",
+  FX_CONVERSION: "Currency conversion",
   REVERSAL: "Reversal",
   ADJUSTMENT: "Adjustment",
 };
@@ -123,7 +124,8 @@ export function postingsFor(ctx: AppContext, tx: TransactionRow): PostingInput[]
         { accountId: dst, amountMinor: amt - tx.merchant_fee_minor },
         { accountId: feeAccount(), amountMinor: tx.merchant_fee_minor },
       ];
-    case "CROSS_BORDER": {
+    case "CROSS_BORDER":
+    case "FX_CONVERSION": {
       const receive = tx.receive_amount_minor!;
       return [
         { accountId: src, amountMinor: -(amt + fee) },
@@ -199,6 +201,8 @@ function completionMessage(tx: TransactionRow): string {
       return `Repayment of ${amount} received. Thank you!`;
     case "GROUP_CONTRIBUTION":
       return `${amount} added to ${tx.counterparty_label.replace(/^Group: /, "")}.`;
+    case "FX_CONVERSION":
+      return `Converted ${amount} to ${formatAmount(tx.receive_amount_minor!, tx.receive_currency!)}.`;
     case "CROSS_BORDER":
       return `Sent. The recipient gets ${formatAmount(tx.receive_amount_minor!, tx.receive_currency!)}.`;
     default:
@@ -628,6 +632,16 @@ export function approveHeldTransaction(ctx: AppContext, txId: string, staff: Sta
     }
     if (tx.type === "CASH_IN") enforceHoldingsCap(ctx, initiator, tx.amount_minor, true);
     const settled = settle(ctx, tx);
+    const meta = JSON.parse(tx.metadata) as { paymentRequestId?: string };
+    if (meta.paymentRequestId) {
+      run(
+        ctx.db,
+        "UPDATE payment_requests SET status = 'PAID', decided_at = ?, transaction_id = ? WHERE id = ? AND status = 'PENDING'",
+        ctx.nowIso(),
+        txId,
+        meta.paymentRequestId,
+      );
+    }
     closeAlertsForTransaction(ctx, txId, `APPROVED by ${staff.username}`);
     notifyCompleted(ctx, settled);
     audit(ctx, { actorType: "STAFF", actorId: staff.id, action: "TRANSACTION_APPROVED", entityType: "transaction", entityId: txId });

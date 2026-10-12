@@ -403,8 +403,43 @@ CREATE TABLE IF NOT EXISTS group_payout_votes (
 );
 `;
 
+export const SCHEMA_V3 = `
+ALTER TABLE users ADD COLUMN locale TEXT NOT NULL DEFAULT 'en';
+
+CREATE TABLE IF NOT EXISTS conversion_quotes (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users (id),
+  from_currency TEXT NOT NULL,
+  to_currency TEXT NOT NULL,
+  sell_amount_minor INTEGER NOT NULL CHECK (sell_amount_minor > 0),
+  buy_amount_minor INTEGER NOT NULL CHECK (buy_amount_minor > 0),
+  rate REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS payment_requests (
+  id TEXT PRIMARY KEY,
+  requester_id TEXT NOT NULL REFERENCES users (id),
+  payer_id TEXT NOT NULL REFERENCES users (id),
+  amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+  currency TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL CHECK (status IN ('PENDING', 'PAID', 'DECLINED', 'CANCELLED')),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  decided_at TEXT,
+  transaction_id TEXT,
+  CHECK (requester_id <> payer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_requests_payer ON payment_requests (payer_id, status);
+CREATE INDEX IF NOT EXISTS idx_requests_requester ON payment_requests (requester_id, status);
+`;
+
 /** Ordered, append-only list of migrations. Never edit one that has shipped. */
 export const MIGRATIONS: { version: number; sql: string }[] = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: SCHEMA_V2 },
+  { version: 3, sql: SCHEMA_V3 },
 ];

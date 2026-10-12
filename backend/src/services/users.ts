@@ -1,4 +1,4 @@
-import type { UserProfile, WalletAccount } from "@benki/shared";
+import { convertMinor, type UserProfile, type WalletAccount } from "@benki/shared";
 import type { AppContext } from "../context";
 import { all, one, run } from "../db/query";
 import type { UserRow } from "../db/rows";
@@ -45,6 +45,7 @@ export function toUserProfile(user: UserRow): UserProfile {
     nationalIdMasked: user.national_id_last4 ? `••••${user.national_id_last4}` : null,
     proofOfAddressConfirmed: !!user.proof_of_address,
     pinSet: !!user.pin_hash,
+    locale: user.locale,
     createdAt: user.created_at,
   };
 }
@@ -74,12 +75,20 @@ export function walletView(ctx: AppContext, accountId: string): WalletAccount {
   };
 }
 
-/** Wallet + savings vaults: what the e-money balance cap applies to. */
+/**
+ * Wallet + savings vaults + foreign-currency pockets (valued at the reference
+ * rate in the wallet's currency): what the e-money balance cap applies to.
+ */
 export function totalHoldings(ctx: AppContext, userId: string): number {
-  const rows = all<{ id: string }>(
+  const rows = all<{ id: string; kind: string; currency: string }>(
     ctx.db,
-    "SELECT id FROM accounts WHERE owner_id = ? AND kind IN ('WALLET', 'VAULT')",
+    "SELECT id, kind, currency FROM accounts WHERE owner_id = ? AND kind IN ('WALLET', 'VAULT', 'POCKET')",
     userId,
   );
-  return rows.reduce((sum, r) => sum + balanceOf(ctx, r.id), 0);
+  const local = rows.find((r) => r.kind === "WALLET")?.currency;
+  return rows.reduce((sum, r) => {
+    const balance = balanceOf(ctx, r.id);
+    if (r.kind !== "POCKET" || !local || !balance) return sum + balance;
+    return sum + (convertMinor(balance, r.currency, local) ?? 0);
+  }, 0);
 }

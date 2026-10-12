@@ -228,3 +228,75 @@ describe("USSD channel", () => {
     expect(ok.text).toMatch(/^CON/);
   });
 });
+
+describe("multi-currency pockets", () => {
+  it("converts between the wallet and a USD pocket at a disclosed rate, counting only local outflows against limits", async () => {
+    const h = harness();
+    const alice = await h.customer("+221700000901");
+    const tier0 = await h.customer("+221700000902", { tier: 0 });
+    await alice.fund(300_000);
+    expect((await tier0.call("post", "/v1/pockets", { currency: "USD" })).status).toBe(403);
+
+    const opened = await alice.call("post", "/v1/pockets", { currency: "USD" });
+    expect(opened.status).toBe(201);
+    expect(opened.body.pockets).toEqual([expect.objectContaining({ currency: "USD", balanceMinor: 0 })]);
+    expect((await alice.call("post", "/v1/pockets/quote", { fromCurrency: "XOF", toCurrency: "EUR", sellAmountMinor: 1000 })).status).toBe(400);
+
+    const quote = await alice.call("post", "/v1/pockets/quote", { fromCurrency: "XOF", toCurrency: "USD", sellAmountMinor: 60_000 });
+    expect(quote.body).toMatchObject({ buyAmountMinor: 9_900, marginBps: 100 });
+    const convert = (quoteId: string) => alice.call("post", "/v1/pockets/convert", { idempotencyKey: h.key(), pin: PIN, quoteId });
+    const bought = await convert(quote.body.quoteId);
+    expect(bought.status).toBe(201);
+    expect(bought.body.pockets[0].balanceMinor).toBe(9_900);
+    expect(bought.body.transaction).toMatchObject({ type: "FX_CONVERSION", direction: "DEBIT", receiveAmountMinor: 9_900, receiveCurrency: "USD" });
+    expect((await convert(quote.body.quoteId)).status).toBe(409);
+
+    const sellQuote = await alice.call("post", "/v1/pockets/quote", { fromCurrency: "USD", toCurrency: "XOF", sellAmountMinor: 5_000 });
+    expect(sellQuote.body.buyAmountMinor).toBe(29_700);
+    const sold = await convert(sellQuote.body.quoteId);
+    expect(sold.body.transaction.direction).toBe("CREDIT");
+    expect((await alice.balance()).ledgerBalanceMinor).toBe(240_000 + 29_700);
+
+    const limits = (await alice.call("get", "/v1/limits")).body;
+    expect(limits.dailyUsedMinor).toBe(60_000);
+    expect(limits.totalHoldingsMinor).toBe(269_700 + 4_900 * 6);
+
+    const stale = await alice.call("post", "/v1/pockets/quote", { fromCurrency: "XOF", toCurrency: "USD", sellAmountMinor: 6_000 });
+    h.clock.advance(61_000);
+    expect((await convert(stale.body.quoteId)).status).toBe(409);
+    expect(trialBalance(h.ctx).balanced).toBe(true);
+  });
+});
+
+describe("payment requests", () => {
+  it("lets a payer approve a request with their PIN exactly once, decline it, and caps unsolicited requests", async () => {
+    const h = harness();
+    const alice = await h.customer("+221700000951", { fullName: "Awa Ndiaye" });
+    const bob = await h.customer("+221700000952", { fullName: "Ousmane Faye" });
+    await bob.fund(50_000);
+
+    expect((await alice.call("post", "/v1/requests", { payerPhoneNumber: alice.phone, amountMinor: 1_000 })).status).toBe(400);
+    const created = await alice.call("post", "/v1/requests", { payerPhoneNumber: bob.phone, amountMinor: 5_000, note: "Market share" });
+    expect(created.status).toBe(201);
+    const requestId: string = created.body.request.requestId;
+    const incoming = (await bob.call("get", "/v1/requests")).body.requests[0];
+    expect(incoming).toMatchObject({ direction: "INCOMING", counterparty: "Awa Ndiaye", amountMinor: 5_000, status: "PENDING" });
+
+    const pay = () => bob.call("post", `/v1/requests/${requestId}/pay`, { idempotencyKey: h.key(), pin: PIN });
+    const paid = await pay();
+    expect(paid.status).toBe(201);
+    expect(paid.body.request.status).toBe("PAID");
+    expect((await pay()).status).toBe(409);
+    expect((await alice.balance()).ledgerBalanceMinor).toBe(5_000);
+
+    const second = (await alice.call("post", "/v1/requests", { payerPhoneNumber: bob.phone, amountMinor: 2_000 })).body.request;
+    expect((await bob.call("post", `/v1/requests/${second.requestId}/decline`)).body.request.status).toBe("DECLINED");
+    await alice.call("post", "/v1/requests", { payerPhoneNumber: bob.phone, amountMinor: 1_000 });
+    await alice.call("post", "/v1/requests", { payerPhoneNumber: bob.phone, amountMinor: 1_000 });
+    expect((await alice.call("post", "/v1/requests", { payerPhoneNumber: bob.phone, amountMinor: 1_000 })).status).toBe(409);
+    // Only the payer can pay or decline; only the requester can cancel.
+    const open = (await alice.call("get", "/v1/requests")).body.requests.find((r: { status: string }) => r.status === "PENDING");
+    expect((await alice.call("post", `/v1/requests/${open.requestId}/decline`)).status).toBe(404);
+    expect((await alice.call("post", `/v1/requests/${open.requestId}/cancel`)).body.request.status).toBe("CANCELLED");
+  });
+});

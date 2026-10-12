@@ -1,4 +1,4 @@
-import { COUNTRY_BY_CODE, type OtpSendResponse, type OtpVerifyResponse } from "@benki/shared";
+import { COUNTRY_BY_CODE, DEFAULT_LOCALE_BY_COUNTRY, type OtpSendResponse, type OtpVerifyResponse } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -98,7 +98,15 @@ export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId
     let user = getUserByPhone(ctx, phone);
     if (!user) {
       const id = newId("USR");
-      run(ctx.db, "INSERT INTO users (id, phone, country_code, created_at) VALUES (?, ?, ?, ?)", id, phone, row.country_code, now);
+      run(
+        ctx.db,
+        "INSERT INTO users (id, phone, country_code, locale, created_at) VALUES (?, ?, ?, ?, ?)",
+        id,
+        phone,
+        row.country_code,
+        DEFAULT_LOCALE_BY_COUNTRY[row.country_code] ?? "en",
+        now,
+      );
       user = getUser(ctx, id)!;
       audit(ctx, { actorType: "USER", actorId: id, action: "USER_REGISTERED", entityType: "user", entityId: id, details: { countryCode: row.country_code } });
     }

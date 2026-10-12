@@ -59,6 +59,7 @@ export const MIN_TIER_FOR_SERVICE = {
   P2P: "TIER_0",
   SAVINGS: "TIER_1",
   BANK_TRANSFER: "TIER_1",
+  POCKETS: "TIER_1",
   GROUPS: "TIER_1",
   LOANS: "TIER_1",
 } as const satisfies Record<string, KycTier>;

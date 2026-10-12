@@ -4,7 +4,7 @@ import type { AccountRow } from "../db/rows";
 import { newId } from "../lib/ids";
 
 /** Customer-owned accounts: these must never go negative. */
-export type CustomerAccountKind = "WALLET" | "VAULT" | "MERCHANT_WALLET" | "AGENT_FLOAT" | "GROUP_POOL";
+export type CustomerAccountKind = "WALLET" | "VAULT" | "MERCHANT_WALLET" | "AGENT_FLOAT" | "GROUP_POOL" | "POCKET";
 
 /**
  * Platform accounts. Signed-amount convention: a positive posting increases
@@ -33,7 +33,7 @@ export function createCustomerAccount(
   currency: string,
   ownerId: string,
   label: string,
-  id = newId({ WALLET: "WAL", VAULT: "VLT", AGENT_FLOAT: "AGF", MERCHANT_WALLET: "MWL", GROUP_POOL: "GRP" }[kind]),
+  id = newId({ WALLET: "WAL", VAULT: "VLT", AGENT_FLOAT: "AGF", MERCHANT_WALLET: "MWL", GROUP_POOL: "GRP", POCKET: "PKT" }[kind]),
 ): AccountRow {
   run(
     ctx.db,

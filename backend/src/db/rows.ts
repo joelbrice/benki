@@ -1,6 +1,7 @@
 import type {
   AccountStatus,
   KycTier,
+  Locale,
   RiskDecision,
   ScreeningStatus,
   StaffRole,
@@ -30,6 +31,7 @@ export interface UserRow {
   pin_locked_until: string | null;
   wallet_account_id: string | null;
   merchant_code: string | null;
+  locale: Locale;
   created_at: string;
   last_activity_at: string | null;
 }

@@ -1,10 +1,11 @@
 import {
+  convertMinor,
   COUNTRY_BY_CODE,
   customerFeeMinor,
+  displayRate,
   FX_MARGIN_BPS,
   FX_UNITS_PER_USD,
   MIN_TIER_FOR_SERVICE,
-  minorUnitsPerMajor,
   tierAtLeast,
   type FxQuote,
 } from "@benki/shared";
@@ -38,11 +39,9 @@ export function createFxQuote(ctx: AppContext, user: UserRow, destinationCountry
 
   // Multiply everything out before the single division so the result isn't
   // pushed below an integer boundary by a rounded intermediate rate.
-  const numerator = sendAmountMinor * receiveRate * minorUnitsPerMajor(receiveCurrency) * (10_000 - FX_MARGIN_BPS);
-  const denominator = sendRate * minorUnitsPerMajor(sendCurrency) * 10_000;
-  const receiveAmountMinor = Math.floor(numerator / denominator + 1e-9);
+  const receiveAmountMinor = convertMinor(sendAmountMinor, sendCurrency, receiveCurrency, FX_MARGIN_BPS)!;
   if (receiveAmountMinor <= 0) throw badRequest("That amount is too small to send abroad");
-  const rate = Math.round((receiveRate / sendRate) * (1 - FX_MARGIN_BPS / 10_000) * 1e6) / 1e6;
+  const rate = displayRate(sendCurrency, receiveCurrency);
 
   const feeMinor = customerFeeMinor("CROSS_BORDER", sendAmountMinor);
   const quoteId = newId("FXQ");

@@ -22,6 +22,7 @@ function flip(d: Direction): Direction {
 export function directionFor(tx: TransactionRow, userId: string): Direction {
   const meta = JSON.parse(tx.metadata) as { direction?: Direction; originalType?: TransactionType };
   if (tx.type === "ADJUSTMENT") return meta.direction ?? "CREDIT";
+  if (tx.type === "FX_CONVERSION") return meta.direction ?? "DEBIT";
   const isInitiator = tx.initiator_user_id === userId;
   if (tx.type === "REVERSAL") {
     const originalType = meta.originalType ?? "P2P";

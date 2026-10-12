@@ -191,7 +191,13 @@ export const FX_UNITS_PER_USD: Record<string, number> = {
   NGN: 1550,
   TZS: 2600,
   XOF: 600,
+  USD: 1,
+  EUR: 0.92,
 };
+
+/** Hard currencies customers can hold alongside their local wallet. */
+export const POCKET_CURRENCIES = ["USD", "EUR"] as const;
+export type PocketCurrency = (typeof POCKET_CURRENCIES)[number];
 
 export interface Bank {
   id: string;

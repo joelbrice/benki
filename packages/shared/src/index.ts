@@ -4,3 +4,5 @@ export * from "./limits";
 export * from "./fees";
 export * from "./contracts";
 export * from "./admin";
+export * from "./fx";
+export * from "./i18n/locales";

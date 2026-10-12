@@ -1,4 +1,5 @@
 import type { KycTier } from "./limits";
+import type { Locale } from "./i18n/locales";
 import type { PurposeCode } from "./catalog";
 
 export type AccountStatus = "ACTIVE" | "FROZEN" | "CLOSED";
@@ -19,6 +20,7 @@ export type TransactionType =
   | "LOAN_REPAYMENT"
   | "GROUP_CONTRIBUTION"
   | "GROUP_PAYOUT"
+  | "FX_CONVERSION"
   | "REVERSAL"
   | "ADJUSTMENT";
 
@@ -52,6 +54,8 @@ export interface UserProfile {
   nationalIdMasked: string | null;
   proofOfAddressConfirmed: boolean;
   pinSet: boolean;
+  /** Preferred language for the apps, notifications and USSD. */
+  locale: Locale;
   createdAt: string;
 }
 
@@ -389,4 +393,63 @@ export interface SavingsGroup {
   members: GroupMember[];
   payoutRequests: GroupPayoutRequest[];
   createdAt: string;
+}
+
+// --- Multi-currency pockets -----------------------------------------------------------
+
+export interface CurrencyPocket {
+  pocketId: string;
+  currency: string;
+  balanceMinor: number;
+  /** Indicative value in the customer's local currency at the mid-market rate. */
+  localEquivalentMinor: number;
+}
+
+export interface ConversionQuote {
+  quoteId: string;
+  fromCurrency: string;
+  toCurrency: string;
+  sellAmountMinor: number;
+  buyAmountMinor: number;
+  /** Units of toCurrency per 1 unit of fromCurrency, after margin. */
+  rate: number;
+  /** The margin applied, disclosed up front (no separate fee). */
+  marginBps: number;
+  expiresAt: string;
+}
+
+export interface ConversionQuoteRequest {
+  fromCurrency: string;
+  toCurrency: string;
+  sellAmountMinor: number;
+}
+
+export interface ConversionRequest extends PinProtected {
+  idempotencyKey: string;
+  quoteId: string;
+}
+
+// --- Payment requests -------------------------------------------------------------------
+
+export type PaymentRequestStatus = "PENDING" | "PAID" | "DECLINED" | "CANCELLED" | "EXPIRED";
+
+export interface PaymentRequest {
+  requestId: string;
+  direction: "INCOMING" | "OUTGOING";
+  /** The other party's display name. */
+  counterparty: string;
+  counterpartyPhoneMasked: string;
+  amountMinor: number;
+  currency: string;
+  note: string;
+  status: PaymentRequestStatus;
+  createdAt: string;
+  expiresAt: string;
+  transactionId: string | null;
+}
+
+export interface CreatePaymentRequest {
+  payerPhoneNumber: string;
+  amountMinor: number;
+  note?: string;
 }

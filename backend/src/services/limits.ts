@@ -22,7 +22,16 @@ export const OUTFLOW_TYPES: TransactionType[] = [
   "CROSS_BORDER",
   "BANK_TRANSFER",
   "GROUP_CONTRIBUTION",
+  "FX_CONVERSION",
 ];
+
+/**
+ * Limits and risk thresholds are in the customer's local currency, so sums
+ * only include transactions denominated in it (selling a USD pocket back to
+ * the wallet is not an outflow of local money).
+ */
+export const LOCAL_CURRENCY_ONLY =
+  "currency = (SELECT a.currency FROM accounts a JOIN users u ON u.wallet_account_id = a.id WHERE u.id = initiator_user_id)";
 
 /** Attempted value counts against limits even while pending or held for review. */
 export const LIMIT_COUNTED_STATUSES = ["COMPLETED", "PENDING", "PENDING_REVIEW"];
@@ -34,7 +43,8 @@ export function outflowSince(ctx: AppContext, userId: string, since: Date): numb
     ctx.db,
     `SELECT SUM(amount_minor) AS total FROM transactions
      WHERE initiator_user_id = ? AND created_at >= ?
-       AND type IN (${inList(OUTFLOW_TYPES)}) AND status IN (${inList(LIMIT_COUNTED_STATUSES)})`,
+       AND type IN (${inList(OUTFLOW_TYPES)}) AND status IN (${inList(LIMIT_COUNTED_STATUSES)})
+       AND ${LOCAL_CURRENCY_ONLY}`,
     userId,
     since.toISOString(),
   );

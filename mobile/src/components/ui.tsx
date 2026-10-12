@@ -172,6 +172,7 @@ export const TYPE_LABEL: Record<TransactionType, string> = {
   LOAN_REPAYMENT: "Loan repayment",
   GROUP_CONTRIBUTION: "Group contribution",
   GROUP_PAYOUT: "Group payout",
+  FX_CONVERSION: "Currency conversion",
   REVERSAL: "Reversal",
   ADJUSTMENT: "Adjustment",
 };

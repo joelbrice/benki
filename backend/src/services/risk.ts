@@ -4,7 +4,7 @@ import { one } from "../db/query";
 import type { UserRow } from "../db/rows";
 import { DAY, HOUR, MINUTE } from "../lib/clock";
 import { deviceFirstSeen } from "./auth";
-import { LIMIT_COUNTED_STATUSES, OUTFLOW_TYPES } from "./limits";
+import { LIMIT_COUNTED_STATUSES, LOCAL_CURRENCY_ONLY, OUTFLOW_TYPES } from "./limits";
 import { getUser } from "./users";
 
 export interface RiskInput {
@@ -118,7 +118,7 @@ export function assessRisk(ctx: AppContext, input: RiskInput): RiskResult {
       const recentOut = sumOne(
         ctx,
         `SELECT SUM(amount_minor) AS v FROM transactions WHERE initiator_user_id = ? AND created_at >= ?
-         AND type IN (${inList(OUTFLOW_TYPES)}) AND status IN (${inList(LIMIT_COUNTED_STATUSES)})`,
+         AND type IN (${inList(OUTFLOW_TYPES)}) AND status IN (${inList(LIMIT_COUNTED_STATUSES)}) AND ${LOCAL_CURRENCY_ONLY}`,
         user.id,
         sinceIso(RISK_RULES.PASS_THROUGH_WINDOW_MS),
       );
@@ -156,7 +156,7 @@ export function assessRisk(ctx: AppContext, input: RiskInput): RiskResult {
     const inBand = sumOne(
       ctx,
       `SELECT COUNT(*) AS v FROM transactions WHERE initiator_user_id = ? AND type = ? AND created_at >= ?
-       AND amount_minor BETWEEN ? AND ? AND status IN (${inList(LIMIT_COUNTED_STATUSES)})`,
+       AND amount_minor BETWEEN ? AND ? AND status IN (${inList(LIMIT_COUNTED_STATUSES)}) AND ${LOCAL_CURRENCY_ONLY}`,
       user.id,
       type,
       sinceIso(RISK_RULES.STRUCTURING_WINDOW_MS),

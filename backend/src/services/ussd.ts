@@ -2,6 +2,7 @@ import {
   AFRICAN_COUNTRIES,
   COUNTRY_BY_CODE,
   customerFeeMinor,
+  DEFAULT_LOCALE_BY_COUNTRY,
   formatAmount,
   parseMajorToMinor,
   USSD_SHORT_CODE,
@@ -82,7 +83,15 @@ function register(ctx: AppContext, phone: string, countryCode: string, existing:
     const now = ctx.nowIso();
     if (!user) {
       const id = newId("USR");
-      run(ctx.db, "INSERT INTO users (id, phone, country_code, created_at) VALUES (?, ?, ?, ?)", id, phone, countryCode, now);
+      run(
+        ctx.db,
+        "INSERT INTO users (id, phone, country_code, locale, created_at) VALUES (?, ?, ?, ?, ?)",
+        id,
+        phone,
+        countryCode,
+        DEFAULT_LOCALE_BY_COUNTRY[countryCode] ?? "en",
+        now,
+      );
       audit(ctx, { actorType: "USER", actorId: id, action: "USER_REGISTERED", entityType: "user", entityId: id, details: { countryCode, channel: "USSD" } });
       user = getUser(ctx, id)!;
     }
