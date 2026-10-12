@@ -1,13 +1,13 @@
 # Benki — Bank Without Borders
 
-Benki is an African-focused "banking without borders" platform: simple, safe financial access for rural and underserved users across mobile money, agents, local billers, merchants and cross-border corridors.
+Benki is an African-focused "banking without borders" platform: simple, safe financial access for rural and underserved users across mobile money, agents, banks, local billers, merchants and cross-border corridors — in **English, French, Kiswahili, Hausa, Yorùbá and Wolof**, on smartphones, the web, and any phone over USSD.
 
 The repository contains a working sandbox of the whole platform, modeled on five markets from `docs/COUNTRY_COMPLIANCE_MATRIX.md` (Kenya, Ghana, Nigeria, Tanzania, Senegal):
 
-- **`backend/`** — the finance core: an append-only double-entry ledger on SQLite, AML/fraud risk engine, compliance case management, payments orchestration across every rail, and a back-office API. 51 automated tests.
+- **`backend/`** — the finance core: an append-only double-entry ledger on SQLite, AML/fraud risk engine, compliance case management, payments orchestration across every rail, and a back-office API. 67 automated tests.
 - **`web/`** — the customer web app plus a compliance & operations console at `#/admin`.
 - **`mobile/`** — the Expo (iOS + Android) customer app.
-- **`packages/shared/`** — one set of API contracts, market catalog, tier limits and fee schedule used by all three.
+- **`packages/shared/`** — one set of API contracts, market catalog, tier limits, fee schedule and translation catalogs used by all three.
 - **`app/`** — the original Android (Kotlin/Compose) prototype, kept for reference.
 
 Every control and where it's enforced is listed in **[`docs/PLATFORM_GUARDRAILS.md`](docs/PLATFORM_GUARDRAILS.md)**.
@@ -28,6 +28,13 @@ Every control and where it's enforced is listed in **[`docs/PLATFORM_GUARDRAILS.
 | Airtime | Any number on a local network. |
 | Savings vaults | Up to 5 goals per customer. |
 | History, statements, disputes | CSV statement from the ledger; dispute a payment within 120 days. |
+| Bank transfers | Account-holder name looked up before you confirm, and re-checked at send time; settles over the bank rail with automatic refunds on failure. Tier 1+. |
+| Payment requests | Ask a Benki user to pay you; they approve with their PIN. Can never be paid twice; anti-spam caps. |
+| Currency pockets | Hold US dollars and euros; convert at a disclosed rate (margin is the only cost). Buying hard currency counts against limits and is screened. Tier 1+. |
+| Savings groups (chama / tontine / susu) | Pooled savings; payouts only after a member quorum, and nobody can approve a payout to themselves. |
+| Nano-loans | Sized from your own income history; flat fee, APR and due date shown up front; explicit consent; never offered to accounts under investigation. |
+| USSD (`*384*236#`) | Register, check balance, send, buy airtime, withdraw cash and get a mini statement from any phone. Same PIN, limits and AML controls as the apps. |
+| Six languages | English, Français, Kiswahili, Hausa, Yorùbá, Wolof — in the apps, API messages, notifications/SMS and USSD. New customers start in their market's language. |
 | Fee transparency | Every payment shows fee and total before the PIN prompt (`GET /v1/pricing/quote`). |
 
 ## What staff can do (back office, `#/admin`)
@@ -43,7 +50,7 @@ Requires Node 22.5+ (uses the built-in `node:sqlite`).
 ```bash
 npm install                 # backend + web + shared
 npm run dev:backend         # API on http://localhost:4000 (SQLite at backend/data/benki.db)
-npm run dev:web             # http://localhost:5173 — customers; http://localhost:5173/#/admin — staff
+npm run dev:web             # http://localhost:5173 — customers; /#/admin — staff; /#/ussd — feature-phone simulator
 
 cd mobile && npm install    # separate Expo project
 npm run web                 # or npm run ios / npm run android
@@ -70,6 +77,9 @@ Deterministic test triggers:
 | … ending `0000` | Payout fails at the provider → refunded |
 | … ending `5555` / `9999` / `8888` | Reconciliation breaks: status mismatch / amount mismatch / duplicate settlement |
 | 6th outgoing payment within an hour | Velocity rule → held for review |
+| Bank account number ending `404` | Name enquiry finds no such account |
+| Bank account ending `4444` / `0000` | Bank outage at dispatch / credit rejected → refunded |
+| Any phone number in the USSD simulator (`#/ussd`) | Registers or signs in as that number (development only) |
 
 ### Configuration
 
@@ -79,13 +89,14 @@ Deterministic test triggers:
 | `BENKI_DATA_KEY` | 32-byte base64 key for field encryption — **required in production** |
 | `BENKI_WEBHOOK_SECRET` | HMAC secret for provider webhooks — **required in production** |
 | `BENKI_CORS_ORIGINS` | Comma-separated allowed browser origins |
-| `BENKI_EXPOSE_DEV_OTP`, `BENKI_SEED_DEMO_STAFF` | Sandbox conveniences; refused in production |
+| `BENKI_USSD_GATEWAY_KEY` | Shared secret the USSD aggregator sends on `POST /v1/ussd` — **required in production** |
+| `BENKI_EXPOSE_DEV_OTP`, `BENKI_SEED_DEMO_STAFF`, `BENKI_USSD_SIMULATOR` | Sandbox conveniences; refused in production |
 | `BENKI_PROVIDER_LATENCY_MS`, `BENKI_SETTLEMENT_INTERVAL_MS` | Sandbox provider timing |
 | `VITE_API_BASE_URL` (web), `EXPO_PUBLIC_API_BASE_URL` (mobile) | API location for the clients |
 
 ## What this is not (yet)
 
-Provider adapters, the watchlist, telco signals and FX rates are sandbox stand-ins behind real interfaces (`backend/src/services/providers.ts`); production needs licensed integrations, a screening vendor with list refresh, an SMS gateway, a rates feed, a managed database with backups, and HSM/KMS-held keys. Limits, fees and the market catalog are illustrative — real values come from the compliance matrix per launch. See `docs/SOLUTION_ARCHITECTURE.md` for the target architecture.
+Provider adapters, the watchlist, telco signals and FX rates are sandbox stand-ins behind real interfaces (`backend/src/services/providers.ts`); production needs licensed integrations, a screening vendor with list refresh, an SMS gateway, a rates feed, a managed database with backups, and HSM/KMS-held keys. Limits, fees and the market catalog are illustrative — real values come from the compliance matrix per launch. The Kiswahili, Hausa, Yorùbá and Wolof translations should be reviewed by native-speaking financial-services translators before launch (every key and placeholder is checked automatically; wording quality is not). Card issuing and inbound diaspora remittances need a licensed partner and are not built. See `docs/SOLUTION_ARCHITECTURE.md` for the target architecture.
 
 ## Documentation
 

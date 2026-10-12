@@ -80,6 +80,24 @@ The audit log is hash-chained: each entry commits to the previous entry's hash, 
 
 Verified in `payments.test.ts` and `backoffice.test.ts`.
 
-## 9. Platform hardening
+## 9. Products added on top of the core
+
+| Control | Implementation | Verified by |
+| --- | --- | --- |
+| Bank transfers only after the bank confirms the account holder's name, re-checked at send time (catches typos and recycled accounts) | `routes/customer.ts` `resolveBankAccount`, `payments.ts` `draftBankTransfer` | `products.test.ts` |
+| Bank payouts settle asynchronously, reconcile like mobile money and refund in full on failure | `EXTERNAL_RAIL_TYPES` in `providers.ts`, `settlement.ts`, `reconciliation.ts` | `products.test.ts` |
+| USSD gateway authenticated by shared key; per-phone rate limit; simulator refused in production | `routes/ussd.ts`, `config.ts` | `products.test.ts`, `security.test.ts` |
+| USSD payments use the same pipeline (PIN, limits, screening, ledger) and one payment per session (gateway retries replay) | `services/pipeline.ts`, `services/ussd.ts` | `products.test.ts` |
+| Group payouts need a quorum of members other than the recipient; executed through the normal payment pipeline in a savepoint | `services/groups.ts` | `products.test.ts` |
+| Group pools are owned by the group, not a person, and can't go negative | `GROUP_POOL` account kind | `products.test.ts` |
+| Loans: Tier 1, active account, no open case or alert (generic reason, no tipping off), income history, ceiling from limits and inflows, explicit consent, fee-first repayment | `services/loans.ts` | `products.test.ts` |
+| Currency pockets: single-use 60 s quotes, disclosed margin; buying counts against local-currency limits and is screened; pockets count toward the balance cap at the reference rate | `services/pockets.ts`, `limits.ts` `LOCAL_CURRENCY_ONLY`, `users.ts` `totalHoldings` | `products.test.ts` |
+| Payment requests can't be paid twice, even while the first payment is held for review; anti-spam caps; only the payer can pay or decline | `services/requests.ts`, `approveHeldTransaction` | `products.test.ts` |
+
+## 10. Language and accessibility
+
+All customer-facing text — app screens, API error messages, payment confirmations, notifications (also the SMS body) and every USSD screen — comes from typed catalogs in `packages/shared/src/i18n`. A test fails if any language misses a key or changes a placeholder (`i18n.test.ts`). Amounts are formatted per language and the apps accept both `1,250.50` and `1 250,50`. Compliance wording stays generic in every language (no tipping off). The mobile app gives every tab, tile and control an accessible name and hides decorative icons from screen readers.
+
+## 11. Platform hardening
 
 Security headers, no `x-powered-by`, CORS allow-list, 16 KB body limit, JSON errors with correlation IDs, and a generic 500 that never leaks internals (`http/middleware.ts`, `app.ts`). In production, `loadConfig` refuses to boot with a development data key or webhook secret, an exposed OTP, seeded demo staff, or localhost CORS origins. Verified in `security.test.ts`.
