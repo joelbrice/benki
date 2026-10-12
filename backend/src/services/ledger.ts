@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { TrialBalance } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -99,7 +100,7 @@ export function postEntry(ctx: AppContext, input: EntryInput): string {
       if (account.allow_negative) continue;
       if (availableOf(ctx, accountId) < 0) {
         throw account.kind === "AGENT_FLOAT"
-          ? insufficientFunds("The agent doesn't have enough float for this amount. Try a smaller amount or another agent.")
+          ? insufficientFunds(msg("err.agentFloat"))
           : insufficientFunds();
       }
     }

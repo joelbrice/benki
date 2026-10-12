@@ -6,9 +6,15 @@ import {
   formatAmount,
   merchantFeeMinor,
   MIN_TIER_FOR_SERVICE,
+  money,
+  msg,
+  renderMsg,
   tierAtLeast,
   type Bank,
   type KycTier,
+  type Locale,
+  type MessageKey,
+  type Msg,
   type PaymentResponse,
   type RuleHit,
   type TransactionType,
@@ -18,7 +24,7 @@ import { withTx } from "../db/database";
 import { one, run } from "../db/query";
 import type { StaffRow, TransactionRow, UserRow, VaultRow } from "../db/rows";
 import { randomDigits } from "../lib/crypto";
-import { ApiError, badRequest, complianceBlock, conflict, forbidden, insufficientFunds, notFound } from "../lib/errors";
+import { ApiError, badRequest, conflict, forbidden, insufficientFunds, notFound, providerUnavailable } from "../lib/errors";
 import { newId } from "../lib/ids";
 import { agentFloatAccountId, systemAccount } from "./accounts";
 import { audit } from "./audit";
@@ -65,7 +71,7 @@ export interface PaymentDraft {
 export interface PaymentOutcome {
   tx: TransactionRow;
   status: number;
-  message: string;
+  message: Msg;
   blocked: boolean;
   needsDispatch: boolean;
 }
@@ -96,7 +102,7 @@ export function getTransaction(ctx: AppContext, id: string): TransactionRow | un
 }
 
 export function requireWallet(user: UserRow): string {
-  if (!user.wallet_account_id) throw badRequest("Create a wallet first");
+  if (!user.wallet_account_id) throw badRequest(msg("err.walletFirst"));
   return user.wallet_account_id;
 }
 
@@ -183,42 +189,44 @@ function settle(ctx: AppContext, tx: TransactionRow): TransactionRow {
   return getTransaction(ctx, tx.id)!;
 }
 
-function completionMessage(tx: TransactionRow): string {
-  const amount = formatAmount(tx.amount_minor, tx.currency);
+export const typeName = (type: TransactionType): Msg => msg(`type.${type}` as MessageKey);
+
+function completionMessage(tx: TransactionRow): Msg {
+  const amount = money(tx.amount_minor, tx.currency);
   switch (tx.type) {
     case "MOBILE_MONEY_PAYOUT":
     case "BANK_TRANSFER":
-      return `Sending ${amount} to ${tx.counterparty_label}. We'll confirm delivery shortly.`;
+      return msg("pay.sending", { amount, name: tx.counterparty_label });
     case "BILL_PAYMENT":
-      return tx.token ? `Bill paid. Your meter token is ${tx.token}.` : "Bill paid.";
+      return tx.token ? msg("pay.billToken", { token: tx.token }) : msg("pay.billPaid");
     case "CASH_OUT":
-      return `Withdrawal of ${amount} approved — collect your cash from the agent.`;
+      return msg("pay.cashOut", { amount });
     case "LOAN_DISBURSEMENT": {
       const meta = JSON.parse(tx.metadata) as { loanFeeMinor: number; dueAt: string };
-      return `${amount} is in your wallet. Repay ${formatAmount(tx.amount_minor + meta.loanFeeMinor, tx.currency)} by ${meta.dueAt.slice(0, 10)}.`;
+      return msg("pay.loanDisbursed", { amount, total: money(tx.amount_minor + meta.loanFeeMinor, tx.currency), date: meta.dueAt.slice(0, 10) });
     }
     case "LOAN_REPAYMENT":
-      return `Repayment of ${amount} received. Thank you!`;
+      return msg("pay.loanRepaid", { amount });
     case "GROUP_CONTRIBUTION":
-      return `${amount} added to ${tx.counterparty_label.replace(/^Group: /, "")}.`;
+      return msg("pay.groupContribution", { amount, group: tx.counterparty_label.replace(/^Group: /, "") });
     case "FX_CONVERSION":
-      return `Converted ${amount} to ${formatAmount(tx.receive_amount_minor!, tx.receive_currency!)}.`;
+      return msg("pay.converted", { amount, received: money(tx.receive_amount_minor!, tx.receive_currency!) });
     case "CROSS_BORDER":
-      return `Sent. The recipient gets ${formatAmount(tx.receive_amount_minor!, tx.receive_currency!)}.`;
+      return msg("pay.crossBorder", { amount: money(tx.receive_amount_minor!, tx.receive_currency!) });
     default:
-      return `${TYPE_LABEL[tx.type]} of ${amount} completed.`;
+      return msg("pay.completed", { type: typeName(tx.type), amount });
   }
 }
 
 function notifyCompleted(ctx: AppContext, tx: TransactionRow) {
-  const fee = tx.fee_minor ? ` (fee ${formatAmount(tx.fee_minor, tx.currency)})` : "";
   if (!(EXTERNAL_RAIL_TYPES as readonly string[]).includes(tx.type)) {
-    notify(ctx, tx.initiator_user_id, "TRANSACTION", `${TYPE_LABEL[tx.type]}: ${formatAmount(tx.amount_minor, tx.currency)} — ${tx.counterparty_label}${fee}. Ref ${tx.id}.`);
+    const params = { type: typeName(tx.type), amount: money(tx.amount_minor, tx.currency), name: tx.counterparty_label, ref: tx.id };
+    notify(ctx, tx.initiator_user_id, "TRANSACTION", tx.fee_minor ? msg("notif.completedFee", { ...params, fee: money(tx.fee_minor, tx.currency) }) : msg("notif.completed", params));
   }
   if (tx.counterparty_user_id && (tx.type === "P2P" || tx.type === "CROSS_BORDER")) {
     const sender = getUser(ctx, tx.initiator_user_id)!;
-    const received = formatAmount(tx.receive_amount_minor ?? tx.amount_minor, tx.receive_currency ?? tx.currency);
-    notify(ctx, tx.counterparty_user_id, "TRANSACTION", `You received ${received} from ${sender.full_name ?? sender.phone}. Ref ${tx.id}.`);
+    const received = money(tx.receive_amount_minor ?? tx.amount_minor, tx.receive_currency ?? tx.currency);
+    notify(ctx, tx.counterparty_user_id, "TRANSACTION", msg("notif.received", { amount: received, name: sender.full_name ?? sender.phone, ref: tx.id }));
   }
 }
 
@@ -233,7 +241,7 @@ export function submitPayment(ctx: AppContext, draft: PaymentDraft): PaymentOutc
   const user = getUser(ctx, draft.userId)!;
   assertActive(user);
   if (!tierAtLeast(user.kyc_tier, draft.minTier)) {
-    throw forbidden("Verify your identity (Tier 1) to use this service.");
+    throw forbidden(msg("err.tierRequired"));
   }
   if (draft.outflow) enforceOutflowLimits(ctx, user, draft.amountMinor);
   if (draft.checkFunds) {
@@ -241,8 +249,8 @@ export function submitPayment(ctx: AppContext, draft: PaymentDraft): PaymentOutc
     if (availableOf(ctx, draft.sourceAccountId) < needed) {
       throw insufficientFunds(
         draft.feeMinor
-          ? `Insufficient funds — this needs ${formatAmount(needed, draft.currency)} including the ${formatAmount(draft.feeMinor, draft.currency)} fee.`
-          : "Insufficient funds",
+          ? msg("err.insufficientFundsWithFee", { total: money(needed, draft.currency), fee: money(draft.feeMinor, draft.currency) })
+          : msg("err.insufficientFunds"),
       );
     }
   }
@@ -301,7 +309,7 @@ export function submitPayment(ctx: AppContext, draft: PaymentDraft): PaymentOutc
   if (risk.decision === "BLOCK") {
     raiseAlert(ctx, { kind: "TRANSACTION", userId: user.id, transactionId: id, severity: "CRITICAL", hits: risk.hits });
     audit(ctx, { actorType: "USER", actorId: user.id, action: "TRANSACTION_BLOCKED", entityType: "transaction", entityId: id, details: auditDetails });
-    return { tx: getTransaction(ctx, id)!, status: 422, message: complianceBlock().message, blocked: true, needsDispatch: false };
+    return { tx: getTransaction(ctx, id)!, status: 422, message: msg("err.complianceBlock"), blocked: true, needsDispatch: false };
   }
 
   touchActivity(ctx, user.id);
@@ -309,11 +317,9 @@ export function submitPayment(ctx: AppContext, draft: PaymentDraft): PaymentOutc
   if (risk.decision === "REVIEW") {
     if (draft.checkFunds) placeHold(ctx, draft.sourceAccountId, id, draft.amountMinor + draft.feeMinor);
     raiseAlert(ctx, { kind: "TRANSACTION", userId: user.id, transactionId: id, severity: risk.score >= 70 ? "HIGH" : "MEDIUM", hits: risk.hits });
-    notify(ctx, user.id, "TRANSACTION", `Your ${TYPE_LABEL[draft.type].toLowerCase()} of ${formatAmount(draft.amountMinor, draft.currency)} is being processed. Ref ${id}.`);
+    notify(ctx, user.id, "TRANSACTION", msg("notif.processing", { type: typeName(draft.type), amount: money(draft.amountMinor, draft.currency), ref: id }));
     audit(ctx, { actorType: "USER", actorId: user.id, action: "TRANSACTION_HELD", entityType: "transaction", entityId: id, details: auditDetails });
-    const message = draft.checkFunds
-      ? "Your payment is being processed and may take a little longer. The funds are reserved in your wallet."
-      : "Your deposit is being processed and will show in your balance shortly.";
+    const message = msg(draft.checkFunds ? "pay.heldOutgoing" : "pay.heldIncoming");
     return { tx: getTransaction(ctx, id)!, status: 202, message, blocked: false, needsDispatch: false };
   }
 
@@ -323,9 +329,9 @@ export function submitPayment(ctx: AppContext, draft: PaymentDraft): PaymentOutc
   return { tx, status: 201, message: completionMessage(tx), blocked: false, needsDispatch: tx.status === "PENDING" };
 }
 
-export function paymentResponse(ctx: AppContext, tx: TransactionRow, userId: string, message: string): PaymentResponse {
+export function paymentResponse(ctx: AppContext, tx: TransactionRow, userId: string, message: Msg | string, locale: Locale = "en"): PaymentResponse {
   const user = getUser(ctx, userId)!;
-  return { transaction: toUserTransaction(ctx, tx, userId), wallet: walletView(ctx, user.wallet_account_id!), message };
+  return { transaction: toUserTransaction(ctx, tx, userId), wallet: walletView(ctx, user.wallet_account_id!), message: renderMsg(locale, message) };
 }
 
 // --- Draft builders: validate the request and resolve accounts ---------------
@@ -362,12 +368,12 @@ function country(user: UserRow) {
 
 function assertLocalPhone(user: UserRow, phone: string) {
   const c = country(user);
-  if (!phone.startsWith(c.callingCode)) throw badRequest(`Use a ${c.name} number starting with ${c.callingCode}`);
+  if (!phone.startsWith(c.callingCode)) throw badRequest(msg("err.localPhone", { country: msg(`country.${c.code}` as MessageKey), prefix: c.callingCode }));
 }
 
 export function draftCashIn(user: UserRow, input: { agentId: string; amountMinor: number }, deviceId: string | null): PaymentDraft {
   const agent = country(user).agents.find((a) => a.id === input.agentId);
-  if (!agent) throw badRequest("Choose an agent in your country");
+  if (!agent) throw badRequest(msg("err.chooseAgent"));
   return {
     ...base(user, "CASH_IN", input.amountMinor, deviceId),
     sourceAccountId: agentFloatAccountId(agent.id),
@@ -383,7 +389,7 @@ export function draftCashIn(user: UserRow, input: { agentId: string; amountMinor
 
 export function draftCashOut(user: UserRow, input: { agentId: string; amountMinor: number }, deviceId: string | null): PaymentDraft {
   const agent = country(user).agents.find((a) => a.id === input.agentId);
-  if (!agent) throw badRequest("Choose an agent in your country");
+  if (!agent) throw badRequest(msg("err.chooseAgent"));
   return {
     ...base(user, "CASH_OUT", input.amountMinor, deviceId),
     feeMinor: customerFeeMinor("CASH_OUT", input.amountMinor),
@@ -401,10 +407,10 @@ export function draftP2P(
   deviceId: string | null,
 ): PaymentDraft {
   const recipient = getUserByPhone(ctx, input.destinationPhoneNumber);
-  if (!recipient) throw notFound("No Benki account is registered to that number");
-  if (recipient.id === user.id) throw badRequest("You can't send money to yourself");
-  if (recipient.country_code !== user.country_code) throw badRequest("For other countries, use an international transfer");
-  if (!recipient.wallet_account_id || recipient.status === "CLOSED") throw badRequest("That person can't receive money yet");
+  if (!recipient) throw notFound(msg("err.noAccountForNumber"));
+  if (recipient.id === user.id) throw badRequest(msg("err.selfTransfer"));
+  if (recipient.country_code !== user.country_code) throw badRequest(msg("err.useInternational"));
+  if (!recipient.wallet_account_id || recipient.status === "CLOSED") throw badRequest(msg("err.cannotReceive"));
   return {
     ...base(user, "P2P", input.amountMinor, deviceId),
     feeMinor: customerFeeMinor("P2P", input.amountMinor),
@@ -426,7 +432,7 @@ export function draftMobileMoney(
   deviceId: string | null,
 ): PaymentDraft {
   const provider = country(user).mobileMoneyProviders.find((p) => p.id === input.providerId);
-  if (!provider || !ctx.providers.has(provider.id)) throw badRequest("Choose a mobile money provider in your country");
+  if (!provider || !ctx.providers.has(provider.id)) throw badRequest(msg("err.chooseProvider"));
   assertLocalPhone(user, input.destinationPhoneNumber);
   const currency = currencyOf(user);
   return {
@@ -445,13 +451,13 @@ export function draftMobileMoney(
 
 export function bankFor(user: UserRow, bankId: string) {
   const bank = banksFor(user.country_code).find((b) => b.id === bankId);
-  if (!bank) throw badRequest("Choose a bank in your country");
+  if (!bank) throw badRequest(msg("err.chooseBank"));
   return bank;
 }
 
 export function normalizeBankAccount(bank: Bank, accountNumber: string): string {
   const normalized = accountNumber.replace(/[\s-]/g, "");
-  if (!new RegExp(bank.accountNumberPattern).test(normalized)) throw badRequest(`Enter a valid ${bank.accountNumberHint.toLowerCase()}`);
+  if (!new RegExp(bank.accountNumberPattern).test(normalized)) throw badRequest(msg("err.invalidAccountNumber", { hint: bank.accountNumberHint }));
   return normalized;
 }
 
@@ -466,7 +472,7 @@ export function draftBankTransfer(
   deviceId: string | null,
 ): PaymentDraft {
   const bank = bankFor(user, input.bankId);
-  if (!ctx.providers.has(bank.id)) throw badRequest("This bank isn't available right now");
+  if (!ctx.providers.has(bank.id)) throw providerUnavailable(msg("err.bankUnavailable", { bank: bank.name }));
   const accountNumber = normalizeBankAccount(bank, input.accountNumber);
   return {
     ...base(user, "BANK_TRANSFER", input.amountMinor, deviceId),
@@ -489,7 +495,7 @@ export function draftAirtime(
   deviceId: string | null,
 ): PaymentDraft {
   const provider = country(user).mobileMoneyProviders.find((p) => p.id === input.providerId);
-  if (!provider) throw badRequest("Choose a mobile network in your country");
+  if (!provider) throw badRequest(msg("err.chooseNetwork"));
   const phone = input.phoneNumber ?? user.phone;
   assertLocalPhone(user, phone);
   return {
@@ -510,9 +516,9 @@ export function draftBill(
   deviceId: string | null,
 ): PaymentDraft {
   const biller = country(user).billers.find((b) => b.id === input.billerId);
-  if (!biller) throw badRequest("Choose a biller in your country");
+  if (!biller) throw badRequest(msg("err.chooseBiller"));
   const accountNumber = input.accountNumber.trim().toUpperCase();
-  if (!new RegExp(biller.accountNumberPattern).test(accountNumber)) throw badRequest(`Enter a valid ${biller.accountNumberHint.toLowerCase()}`);
+  if (!new RegExp(biller.accountNumberPattern).test(accountNumber)) throw badRequest(msg("err.invalidAccountNumber", { hint: biller.accountNumberHint }));
   return {
     ...base(user, "BILL_PAYMENT", input.amountMinor, deviceId),
     feeMinor: customerFeeMinor("BILL_PAYMENT", input.amountMinor),
@@ -531,9 +537,9 @@ export function draftMerchant(
   deviceId: string | null,
 ): PaymentDraft {
   const found = findMerchant(input.merchantCode.trim().toUpperCase());
-  if (!found || found.country.code !== user.country_code) throw notFound("Merchant code not found in your country");
+  if (!found || found.country.code !== user.country_code) throw notFound(msg("err.merchantNotFound"));
   const merchantUser = one<UserRow>(ctx.db, "SELECT * FROM users WHERE merchant_code = ?", found.merchant.code);
-  if (!merchantUser?.wallet_account_id) throw notFound("Merchant code not found in your country");
+  if (!merchantUser?.wallet_account_id) throw notFound(msg("err.merchantNotFound"));
   return {
     ...base(user, "MERCHANT_PAYMENT", input.amountMinor, deviceId),
     merchantFeeMinor: merchantFeeMinor("MERCHANT_PAYMENT", input.amountMinor),
@@ -567,14 +573,14 @@ export function draftCrossBorder(
   deviceId: string | null,
 ): PaymentDraft {
   const quote = one<QuoteRow>(ctx.db, "SELECT * FROM fx_quotes WHERE id = ?", input.quoteId);
-  if (!quote || quote.user_id !== user.id) throw notFound("Quote not found");
-  if (quote.used_at) throw conflict("This quote was already used. Get a new quote.");
-  if (new Date(quote.expires_at) <= ctx.now()) throw conflict("This quote has expired. Get a new quote.");
+  if (!quote || quote.user_id !== user.id) throw notFound(msg("err.quoteNotFound"));
+  if (quote.used_at) throw conflict(msg("err.quoteUsed"));
+  if (new Date(quote.expires_at) <= ctx.now()) throw conflict(msg("err.quoteExpired"));
   const recipient = getUserByPhone(ctx, input.destinationPhoneNumber);
   if (!recipient || recipient.country_code !== quote.destination_country) {
-    throw notFound(`No Benki account in ${COUNTRY_BY_CODE[quote.destination_country].name} is registered to that number`);
+    throw notFound(msg("err.noAccountInCountry", { country: msg(`country.${quote.destination_country}` as MessageKey) }));
   }
-  if (!recipient.wallet_account_id || recipient.status === "CLOSED") throw badRequest("That person can't receive money yet");
+  if (!recipient.wallet_account_id || recipient.status === "CLOSED") throw badRequest(msg("err.cannotReceive"));
   run(ctx.db, "UPDATE fx_quotes SET used_at = ? WHERE id = ?", ctx.nowIso(), quote.id);
   return {
     ...base(user, "CROSS_BORDER", quote.send_amount_minor, deviceId),
@@ -602,7 +608,7 @@ export function draftSavings(
   amountMinor: number,
 ): PaymentDraft {
   const vault = one<VaultRow>(ctx.db, "SELECT * FROM savings_vaults WHERE id = ? AND user_id = ?", vaultId, user.id);
-  if (!vault) throw notFound("Savings vault not found");
+  if (!vault) throw notFound(msg("err.notFound"));
   const wallet = requireWallet(user);
   const deposit = direction === "DEPOSIT";
   return {
@@ -658,12 +664,7 @@ export function rejectHeldTransaction(ctx: AppContext, txId: string, staff: Staf
     resolveHolds(ctx, txId, "RELEASED");
     run(ctx.db, "UPDATE transactions SET status = 'REJECTED', updated_at = ? WHERE id = ?", ctx.nowIso(), txId);
     closeAlertsForTransaction(ctx, txId, `REJECTED by ${staff.username}: ${reason}`);
-    notify(
-      ctx,
-      tx.initiator_user_id,
-      "TRANSACTION",
-      `Your ${TYPE_LABEL[tx.type].toLowerCase()} of ${formatAmount(tx.amount_minor, tx.currency)} couldn't be completed. Any reserved funds are available again. Ref ${tx.id}.`,
-    );
+    notify(ctx, tx.initiator_user_id, "TRANSACTION", msg("notif.failed", { type: typeName(tx.type), amount: money(tx.amount_minor, tx.currency), ref: tx.id }));
     audit(ctx, { actorType: "STAFF", actorId: staff.id, action: "TRANSACTION_REJECTED", entityType: "transaction", entityId: txId, details: { reason } });
     return getTransaction(ctx, txId)!;
   });

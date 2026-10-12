@@ -7,8 +7,7 @@ import {
   FX_UNITS_PER_USD,
   MIN_TIER_FOR_SERVICE,
   tierAtLeast,
-  type FxQuote,
-} from "@benki/shared";
+  type FxQuote, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { run } from "../db/query";
 import type { UserRow } from "../db/rows";
@@ -25,22 +24,22 @@ import { assertActive } from "./users";
 export function createFxQuote(ctx: AppContext, user: UserRow, destinationCountryCode: string, sendAmountMinor: number): FxQuote {
   assertActive(user);
   if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.CROSS_BORDER)) {
-    throw forbidden("Verify your identity (Tier 1) to send money abroad.");
+    throw forbidden(msg("err.tierRequired"));
   }
   const destination = COUNTRY_BY_CODE[destinationCountryCode];
-  if (!destination) throw badRequest("We don't send to that country yet");
-  if (destination.code === user.country_code) throw badRequest("For payments within your country, use a local transfer");
+  if (!destination) throw badRequest(msg("err.corridorUnavailable"));
+  if (destination.code === user.country_code) throw badRequest(msg("err.useLocal"));
 
   const sendCurrency = currencyOf(user);
   const receiveCurrency = destination.currency;
   const sendRate = FX_UNITS_PER_USD[sendCurrency];
   const receiveRate = FX_UNITS_PER_USD[receiveCurrency];
-  if (!sendRate || !receiveRate) throw badRequest("This corridor isn't available right now");
+  if (!sendRate || !receiveRate) throw badRequest(msg("err.corridorUnavailable"));
 
   // Multiply everything out before the single division so the result isn't
   // pushed below an integer boundary by a rounded intermediate rate.
   const receiveAmountMinor = convertMinor(sendAmountMinor, sendCurrency, receiveCurrency, FX_MARGIN_BPS)!;
-  if (receiveAmountMinor <= 0) throw badRequest("That amount is too small to send abroad");
+  if (receiveAmountMinor <= 0) throw badRequest(msg("err.amountTooSmall"));
   const rate = displayRate(sendCurrency, receiveCurrency);
 
   const feeMinor = customerFeeMinor("CROSS_BORDER", sendAmountMinor);

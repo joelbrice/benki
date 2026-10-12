@@ -1,3 +1,4 @@
+import { msg, type Locale } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import type { TransactionRow, UserRow } from "../db/rows";
@@ -17,6 +18,8 @@ export interface PaymentRequest {
   body: { idempotencyKey: string; pin?: string } & Record<string, unknown>;
   requirePin: boolean;
   build: (user: UserRow, deviceId: string | null) => PaymentDraft;
+  /** Language for the response message (stored with the idempotent replay). */
+  locale: Locale;
   /** Runs in the same DB transaction once a payment has posted; its fields are added to the response. */
   afterPosted?: (tx: TransactionRow) => Record<string, unknown>;
 }
@@ -51,10 +54,10 @@ export async function runPayment(ctx: AppContext, request: PaymentRequest): Prom
     const outcome = submitPayment(ctx, request.build(getUser(ctx, user.id)!, deviceId));
     let responseBody: unknown;
     if (outcome.blocked) {
-      responseBody = complianceBlock().toBody();
+      responseBody = complianceBlock().toBody(undefined, request.locale);
     } else {
       const extra = outcome.tx.status === "COMPLETED" && request.afterPosted ? request.afterPosted(outcome.tx) : {};
-      responseBody = { ...paymentResponse(ctx, outcome.tx, user.id, outcome.message), ...extra };
+      responseBody = { ...paymentResponse(ctx, outcome.tx, user.id, outcome.message, request.locale), ...extra };
     }
     if (!outcome.needsDispatch) completeIdempotencyKey(ctx, handle, outcome.status, responseBody);
     return { kind: "outcome", outcome, responseBody };
@@ -66,14 +69,12 @@ export async function runPayment(ctx: AppContext, request: PaymentRequest): Prom
 
   const tx = await dispatchPayout(ctx, outcome.tx.id);
   if (tx.status === "FAILED") {
-    const failure = providerUnavailable(
-      `${tx.counterparty_label} couldn't be reached and your money has been refunded. Please try again later.`,
-    ).toBody();
+    const failure = providerUnavailable(msg("err.providerRefunded", { name: tx.counterparty_label })).toBody(undefined, request.locale);
     completeIdempotencyKey(ctx, handle, 502, failure);
     return { status: 502, body: failure, tx };
   }
-  const message = tx.status === "COMPLETED" ? `Delivered to ${tx.counterparty_label}.` : outcome.message;
-  const success = paymentResponse(ctx, tx, user.id, message);
+  const message = tx.status === "COMPLETED" ? msg("pay.delivered", { name: tx.counterparty_label }) : outcome.message;
+  const success = paymentResponse(ctx, tx, user.id, message, request.locale);
   completeIdempotencyKey(ctx, handle, 201, success);
   return { status: 201, body: success, tx };
 }

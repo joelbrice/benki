@@ -10,13 +10,12 @@ import {
   type Locale,
   type FeeBearingType,
   type FeeQuote,
-  type NameEnquiryResponse,
-} from "@benki/shared";
+  type NameEnquiryResponse, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, run } from "../db/query";
 import type { TransactionRow, UserRow } from "../db/rows";
-import { asyncHandler, rateLimit } from "../http/middleware";
+import { asyncHandler, rateLimit, requestLocale } from "../http/middleware";
 import { deviceIdOf, bearerToken, requireUser } from "../http/auth";
 import { badRequest, conflict, notFound, providerUnavailable } from "../lib/errors";
 import { amountMinor, e164Phone, idempotencyKey, note, parse, pin } from "../lib/validation";
@@ -73,6 +72,7 @@ async function executePayment(
     requirePin: options.requirePin,
     build,
     afterPosted: options.afterPosted,
+    locale: requestLocale(req),
   });
   res.status(result.status).json(result.body);
 }
@@ -85,14 +85,14 @@ async function resolveBankAccount(ctx: AppContext, user: UserRow, bankId: string
   const bank = bankFor(user, bankId);
   const normalized = normalizeBankAccount(bank, accountNumber);
   const adapter = ctx.providers.get(bank.id);
-  if (!adapter?.nameEnquiry) throw providerUnavailable("This bank isn't available right now. Please try again later.");
+  if (!adapter?.nameEnquiry) throw providerUnavailable(msg("err.bankUnavailable", { bank: bank.name }));
   let name: string | null;
   try {
     name = await adapter.nameEnquiry(normalized);
   } catch {
-    throw providerUnavailable(`${bank.name} isn't responding right now. Please try again later.`);
+    throw providerUnavailable(msg("err.bankUnavailable", { bank: bank.name }));
   }
-  if (!name) throw notFound(`${bank.name} couldn't find that account number. Check it and try again.`);
+  if (!name) throw notFound(msg("err.bankAccountNotFound", { bank: bank.name }));
   return { bankId: bank.id, accountNumber: normalized, accountName: name };
 }
 
@@ -310,7 +310,7 @@ export function customerRoutes(ctx: AppContext): Router {
       // name the bank holds *now*, so a typo'd or recycled account is caught.
       const resolved = await resolveBankAccount(ctx, req.user!, body.bankId, body.accountNumber);
       if (normalizeName(resolved.accountName) !== normalizeName(body.accountName)) {
-        throw conflict("The account name has changed since you checked it. Look it up again and confirm.");
+        throw conflict(msg("err.bankNameChanged"));
       }
       await executePayment(ctx, req, res, "bank-transfer", body, { requirePin: true }, (u, d) =>
         draftBankTransfer(ctx, u, { ...body, resolvedName: resolved.accountName }, d),
@@ -431,7 +431,7 @@ export function customerRoutes(ctx: AppContext): Router {
 
   // --- Nano-loans -------------------------------------------------------------------
   root.get("/loans/offer", authed, (req, res) => {
-    res.json(loanOffer(ctx, req.user!));
+    res.json(loanOffer(ctx, req.user!, requestLocale(req)));
   });
   root.get("/loans", authed, (req, res) => {
     res.json({ loans: listLoans(ctx, req.user!.id) });

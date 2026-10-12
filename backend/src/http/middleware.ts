@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
+import { negotiateLocale, type Locale } from "@benki/shared";
 import type { AppContext } from "../context";
 import { ApiError, rateLimited } from "../lib/errors";
 import { LedgerInvariantError } from "../services/ledger";
@@ -79,11 +80,20 @@ export function asyncHandler(fn: (req: Request, res: Response) => Promise<void>)
   };
 }
 
+/**
+ * The language to answer in: the app's Accept-Language (it sends the UI
+ * language), else the signed-in customer's saved preference, else English.
+ */
+export function requestLocale(req: Request): Locale {
+  return negotiateLocale(req.header("accept-language"), req.user?.locale ?? "en");
+}
+
 export function errorHandler(ctx: AppContext) {
   return (err: unknown, req: Request, res: Response, next: NextFunction) => {
     if (res.headersSent) return next(err);
+    const locale = requestLocale(req);
     if (err instanceof ApiError) {
-      res.status(err.status).json(err.toBody(req.correlationId));
+      res.status(err.status).json(err.toBody(req.correlationId, locale));
       return;
     }
     const bodyError = err as { type?: string; status?: number };
@@ -102,12 +112,6 @@ export function errorHandler(ctx: AppContext) {
     });
     res
       .status(500)
-      .json(
-        new ApiError(
-          500,
-          "INTERNAL_ERROR",
-          "Something went wrong. Check your transaction history before retrying.",
-        ).toBody(req.correlationId),
-      );
+      .json(new ApiError(500, "INTERNAL_ERROR", { key: "err.generic" }).toBody(req.correlationId, locale));
   };
 }

@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { KycResponse, RuleHit } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -30,29 +31,29 @@ export function upgradeTier1(
 ): KycResponse {
   const user = getUser(ctx, userRow.id)!;
   assertActive(user);
-  if (user.kyc_tier !== "TIER_0") throw conflict("Tier 1 verification is already complete");
-  if (user.kyc_review_pending) throw conflict("Your verification is already being reviewed");
+  if (user.kyc_tier !== "TIER_0") throw conflict(msg("err.kycDone"));
+  if (user.kyc_review_pending) throw conflict(msg("err.kycPending"));
 
   const fullName = input.fullName.trim().replace(/\s+/g, " ");
   if (!/^[\p{L}][\p{L}' .-]{1,99}$/u.test(fullName) || fullName.split(" ").length < 2) {
-    throw badRequest("Enter your full legal name (first and last name)");
+    throw badRequest(msg("err.kycName"));
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.dateOfBirth) || Number.isNaN(Date.parse(input.dateOfBirth))) {
-    throw badRequest("Date of birth must be YYYY-MM-DD");
+    throw badRequest(msg("err.kycDob"));
   }
   const age = ageOn(input.dateOfBirth, ctx.now());
-  if (age < 18) throw badRequest("You must be at least 18 to open a Benki account");
-  if (age > 120) throw badRequest("Check your date of birth");
+  if (age < 18) throw badRequest(msg("err.kycUnderage"));
+  if (age > 120) throw badRequest(msg("err.kycDob"));
 
   const nationalId = input.nationalId.toUpperCase().replace(/[\s-]/g, "");
-  if (!/^[A-Z0-9]{6,20}$/.test(nationalId)) throw badRequest("National ID must be 6–20 letters or digits");
+  if (!/^[A-Z0-9]{6,20}$/.test(nationalId)) throw badRequest(msg("err.kycId"));
 
   // Keyed hash for uniqueness lookups; the ID itself is stored encrypted.
   const idHash = hmacHex(ctx.config.dataKey, `nid:${user.country_code}:${nationalId}`);
   const duplicate = one<{ id: string }>(ctx.db, "SELECT id FROM users WHERE national_id_hash = ? AND id <> ?", idHash, user.id);
   if (duplicate) {
     audit(ctx, { actorType: "USER", actorId: user.id, action: "KYC_DUPLICATE_ID_ATTEMPT", entityType: "user", entityId: user.id, details: { existingUserId: duplicate.id } });
-    throw conflict("This ID number is already linked to another Benki account. Contact support if this is a mistake.");
+    throw conflict(msg("err.kycDuplicateId"));
   }
 
   const screening = screenName(fullName, input.dateOfBirth);
@@ -110,10 +111,10 @@ export function upgradeTier2(
 ): KycResponse {
   const user = getUser(ctx, userRow.id)!;
   assertActive(user);
-  if (user.kyc_tier === "TIER_2") throw conflict("Tier 2 verification is already complete");
-  if (user.kyc_tier !== "TIER_1") throw badRequest("Complete Tier 1 verification first");
+  if (user.kyc_tier === "TIER_2") throw conflict(msg("err.kycDone"));
+  if (user.kyc_tier !== "TIER_1") throw badRequest(msg("err.kycTier1First"));
   if (!input.proofOfAddressConfirmed || !input.livenessCheckPassed) {
-    throw badRequest("Tier 2 needs both a proof of address and a selfie liveness check");
+    throw badRequest(msg("err.kycTier2Evidence"));
   }
   return withTx(ctx.db, () => {
     run(ctx.db, "UPDATE users SET kyc_tier = 'TIER_2', proof_of_address = 1, liveness_passed = 1 WHERE id = ?", user.id);

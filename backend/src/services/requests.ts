@@ -1,4 +1,4 @@
-import { formatAmount, type PaymentRequest, type PaymentRequestStatus } from "@benki/shared";
+import { type PaymentRequest, type PaymentRequestStatus, msg, money } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -65,17 +65,17 @@ export function createRequest(ctx: AppContext, user: UserRow, input: { payerPhon
   assertActive(user);
   const payer = getUserByPhone(ctx, input.payerPhoneNumber);
   if (!payer || payer.country_code !== user.country_code || !payer.wallet_account_id) {
-    throw notFound("No Benki account in your country is registered to that number");
+    throw notFound(msg("err.noAccountForNumber"));
   }
-  if (payer.id === user.id) throw badRequest("You can't request money from yourself");
+  if (payer.id === user.id) throw badRequest(msg("err.requestSelf"));
   const now = ctx.now();
   const pending = (sql: string, ...params: string[]) =>
     one<{ n: number }>(ctx.db, `SELECT COUNT(*) AS n FROM payment_requests WHERE status = 'PENDING' AND expires_at > ? AND ${sql}`, now.toISOString(), ...params)!.n;
   if (pending("requester_id = ?", user.id) >= MAX_PENDING_OUTGOING) {
-    throw conflict(`You have ${MAX_PENDING_OUTGOING} requests waiting. Cancel some before sending more.`);
+    throw conflict(msg("err.requestTooMany", { count: MAX_PENDING_OUTGOING }));
   }
   if (pending("requester_id = ? AND payer_id = ?", user.id, payer.id) >= MAX_PENDING_TO_SAME_PAYER) {
-    throw conflict("You already have requests waiting with this person.");
+    throw conflict(msg("err.requestSamePayer"));
   }
   const note = (input.note ?? "").trim().slice(0, 140);
   const id = newId("REQ");
@@ -97,7 +97,9 @@ export function createRequest(ctx: AppContext, user: UserRow, input: { payerPhon
       ctx,
       payer.id,
       "TRANSACTION",
-      `${user.full_name ?? maskPhone(user.phone)} asked you for ${formatAmount(input.amountMinor, currencyOf(user))}${note ? ` — “${note}”` : ""}. Only pay if you know them.`,
+      note
+        ? msg("notif.requestReceivedNote", { name: user.full_name ?? maskPhone(user.phone), amount: money(input.amountMinor, currencyOf(user)), note })
+        : msg("notif.requestReceived", { name: user.full_name ?? maskPhone(user.phone), amount: money(input.amountMinor, currencyOf(user)) }),
     );
     audit(ctx, { actorType: "USER", actorId: user.id, action: "PAYMENT_REQUESTED", entityType: "payment_request", entityId: id, details: { payerId: payer.id, amountMinor: input.amountMinor } });
     return toRequest(ctx, one<RequestRow>(ctx.db, "SELECT * FROM payment_requests WHERE id = ?", id)!, user.id);
@@ -106,9 +108,9 @@ export function createRequest(ctx: AppContext, user: UserRow, input: { payerPhon
 
 function pendingFor(ctx: AppContext, requestId: string, userId: string, role: "payer" | "requester"): RequestRow {
   const row = one<RequestRow>(ctx.db, "SELECT * FROM payment_requests WHERE id = ?", requestId);
-  if (!row || (role === "payer" ? row.payer_id : row.requester_id) !== userId) throw notFound("Request not found");
+  if (!row || (role === "payer" ? row.payer_id : row.requester_id) !== userId) throw notFound(msg("err.notFound"));
   const status = statusOf(ctx, row);
-  if (status !== "PENDING") throw conflict(status === "EXPIRED" ? "This request has expired." : "This request has already been answered.");
+  if (status !== "PENDING") throw conflict(msg(status === "EXPIRED" ? "err.requestExpired" : "err.requestAnswered"));
   return row;
 }
 
@@ -122,7 +124,7 @@ export function draftRequestPayment(ctx: AppContext, payer: UserRow, requestId: 
      AND status IN ('PENDING', 'PENDING_REVIEW', 'COMPLETED')`,
     row.id,
   );
-  if (inFlight) throw conflict("You've already paid this request. It's being processed.");
+  if (inFlight) throw conflict(msg("err.requestInFlight"));
   const requester = getUser(ctx, row.requester_id)!;
   return {
     ...draftP2P(ctx, payer, { destinationPhoneNumber: requester.phone, amountMinor: row.amount_minor, note: row.note }, deviceId),
@@ -154,7 +156,7 @@ function closeRequest(ctx: AppContext, row: RequestRow, user: UserRow, status: "
   return withTx(ctx.db, () => {
     run(ctx.db, "UPDATE payment_requests SET status = ?, decided_at = ? WHERE id = ?", status, ctx.nowIso(), row.id);
     if (status === "DECLINED") {
-      notify(ctx, row.requester_id, "TRANSACTION", `Your request for ${formatAmount(row.amount_minor, row.currency)} was declined.`);
+      notify(ctx, row.requester_id, "TRANSACTION", msg("notif.requestDeclined", { amount: money(row.amount_minor, row.currency) }));
     }
     audit(ctx, { actorType: "USER", actorId: user.id, action: `PAYMENT_REQUEST_${status}`, entityType: "payment_request", entityId: row.id });
     return toRequest(ctx, one<RequestRow>(ctx.db, "SELECT * FROM payment_requests WHERE id = ?", row.id)!, user.id);

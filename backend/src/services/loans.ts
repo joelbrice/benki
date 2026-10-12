@@ -9,8 +9,7 @@ import {
   tierLimits,
   type Loan,
   type LoanOffer,
-  type LoanStatus,
-} from "@benki/shared";
+  type LoanStatus, msg, money, renderMsg, type Locale, type Msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { all, one, run } from "../db/query";
 import type { TransactionRow, UserRow } from "../db/rows";
@@ -37,7 +36,7 @@ interface LoanRow {
 }
 
 /** Deliberately generic: a customer under investigation must not learn why. */
-const NOT_AVAILABLE = "Loans aren't available for this account right now.";
+const NOT_AVAILABLE = msg("err.loanNotAvailable");
 
 function statusOf(ctx: AppContext, row: LoanRow): LoanStatus {
   if (row.repaid_at) return "REPAID";
@@ -86,22 +85,27 @@ function recentInflows(ctx: AppContext, userId: string): { count: number; totalM
  * outstanding loan, no open compliance case or alert, a real income history,
  * and a ceiling tied to both the tier's limits and recent inflows.
  */
-export function loanOffer(ctx: AppContext, user: UserRow): LoanOffer {
+export function loanOffer(ctx: AppContext, user: UserRow, locale: Locale = user.locale): LoanOffer {
+  const offer = assessLoan(ctx, user);
+  return { ...offer, reasons: offer.reasons.map((r) => renderMsg(locale, r)) };
+}
+
+function assessLoan(ctx: AppContext, user: UserRow): Omit<LoanOffer, "reasons"> & { reasons: Msg[] } {
   const currency = currencyOf(user);
   const minPrincipal = LOAN_PRODUCT.minPrincipalMajor * minorUnitsPerMajor(currency);
-  const reasons: string[] = [];
+  const reasons: Msg[] = [];
   let max = 0;
 
   if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.LOANS)) {
-    reasons.push("Verify your identity (Tier 1) to borrow.");
+    reasons.push(msg("err.loanTier"));
   } else if (user.status !== "ACTIVE" || underInvestigation(ctx, user.id)) {
     reasons.push(NOT_AVAILABLE);
   } else if (one(ctx.db, "SELECT id FROM loans WHERE user_id = ? AND repaid_at IS NULL", user.id)) {
-    reasons.push("Repay your current loan before taking another.");
+    reasons.push(msg("err.loanExisting"));
   } else {
     const inflows = recentInflows(ctx, user.id);
     if (inflows.count < LOAN_PRODUCT.minCompletedInflows) {
-      reasons.push(`Receive money into Benki at least ${LOAN_PRODUCT.minCompletedInflows} times to qualify.`);
+      reasons.push(msg("err.loanInflows", { count: LOAN_PRODUCT.minCompletedInflows }));
     } else {
       const byLimit = tierLimits(user.country_code, user.kyc_tier).perTransactionMinor * LOAN_PRODUCT.maxShareOfPerTransactionLimit;
       const byIncome = inflows.totalMinor * LOAN_PRODUCT.maxShareOfRecentInflows;
@@ -109,7 +113,7 @@ export function loanOffer(ctx: AppContext, user: UserRow): LoanOffer {
       max = Math.floor(Math.min(byLimit, byIncome) / unit) * unit;
       if (max < minPrincipal) {
         max = 0;
-        reasons.push("Your recent activity doesn't support a loan yet. Keep using Benki and check back.");
+        reasons.push(msg("err.loanActivity"));
       }
     }
   }
@@ -134,14 +138,12 @@ function underInvestigation(ctx: AppContext, userId: string): boolean {
 }
 
 export function draftLoanDisbursement(ctx: AppContext, user: UserRow, principalMinor: number): PaymentDraft {
-  const offer = loanOffer(ctx, user);
+  const offer = assessLoan(ctx, user);
   if (!offer.eligible) {
     throw offer.reasons[0] === NOT_AVAILABLE ? forbidden(NOT_AVAILABLE) : conflict(offer.reasons[0]);
   }
   if (principalMinor < offer.minPrincipalMinor || principalMinor > offer.maxPrincipalMinor) {
-    throw badRequest(
-      `Choose an amount between ${formatAmount(offer.minPrincipalMinor, offer.currency)} and ${formatAmount(offer.maxPrincipalMinor, offer.currency)}.`,
-    );
+    throw badRequest(msg("err.loanRange", { min: money(offer.minPrincipalMinor, offer.currency), max: money(offer.maxPrincipalMinor, offer.currency) }));
   }
   const fee = loanFeeMinor(principalMinor);
   const dueAt = new Date(ctx.now().getTime() + LOAN_PRODUCT.termDays * DAY).toISOString();
@@ -203,15 +205,15 @@ export function recordLoan(ctx: AppContext, tx: TransactionRow): Loan {
 
 function ownLoan(ctx: AppContext, userId: string, loanId: string): LoanRow {
   const row = one<LoanRow>(ctx.db, "SELECT * FROM loans WHERE id = ? AND user_id = ?", loanId, userId);
-  if (!row) throw notFound("Loan not found");
+  if (!row) throw notFound(msg("err.notFound"));
   return row;
 }
 
 export function draftLoanRepayment(ctx: AppContext, user: UserRow, loanId: string, amountMinor: number): PaymentDraft {
   const loan = ownLoan(ctx, user.id, loanId);
-  if (loan.repaid_at) throw conflict("This loan is already repaid");
+  if (loan.repaid_at) throw conflict(msg("err.loanRepaid"));
   const outstanding = loan.principal_minor + loan.fee_minor - loan.repaid_minor;
-  if (amountMinor > outstanding) throw badRequest(`You only owe ${formatAmount(outstanding, loan.currency)}.`);
+  if (amountMinor > outstanding) throw badRequest(msg("err.loanOverpay", { amount: money(outstanding, loan.currency) }));
   const feePortion = Math.min(amountMinor, Math.max(0, loan.fee_minor - loan.repaid_minor));
   return {
     type: "LOAN_REPAYMENT",
@@ -256,7 +258,7 @@ export function applyRepayment(ctx: AppContext, tx: TransactionRow): Loan {
     entityId: loanId,
     details: { amountMinor: tx.amount_minor, transactionId: tx.id },
   });
-  if (done) notify(ctx, tx.initiator_user_id, "ACCOUNT", "Your loan is fully repaid. Thank you!");
+  if (done) notify(ctx, tx.initiator_user_id, "ACCOUNT", msg("notif.loanRepaid"));
   return toLoan(ctx, ownLoan(ctx, tx.initiator_user_id, loanId));
 }
 

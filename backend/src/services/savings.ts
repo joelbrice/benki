@@ -1,4 +1,4 @@
-import { MIN_TIER_FOR_SERVICE, tierAtLeast, type SavingsVault } from "@benki/shared";
+import { MIN_TIER_FOR_SERVICE, tierAtLeast, type SavingsVault, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -30,12 +30,12 @@ export function listVaults(ctx: AppContext, userId: string): SavingsVault[] {
 
 export function createVault(ctx: AppContext, user: UserRow, name: string, targetMinor: number): SavingsVault {
   assertActive(user);
-  if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.SAVINGS)) throw forbidden("Verify your identity to open a savings vault.");
+  if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.SAVINGS)) throw forbidden(msg("err.tierRequired"));
   const wallet = getAccount(ctx, requireWallet(user))!;
   const trimmed = name.trim();
-  if (trimmed.length < 2 || trimmed.length > 40) throw badRequest("Vault name must be 2–40 characters");
+  if (trimmed.length < 2 || trimmed.length > 40) throw badRequest(msg("err.vaultName"));
   const count = one<{ n: number }>(ctx.db, "SELECT COUNT(*) AS n FROM savings_vaults WHERE user_id = ?", user.id)!.n;
-  if (count >= MAX_VAULTS) throw conflict(`You can have up to ${MAX_VAULTS} savings vaults`);
+  if (count >= MAX_VAULTS) throw conflict(msg("err.vaultMax", { count: MAX_VAULTS }));
   return withTx(ctx.db, () => {
     const account = createCustomerAccount(ctx, "VAULT", wallet.currency, user.id, `Savings: ${trimmed}`);
     const id = newId("VLT");

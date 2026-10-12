@@ -1,4 +1,4 @@
-import { COUNTRY_BY_CODE, DEFAULT_LOCALE_BY_COUNTRY, type OtpSendResponse, type OtpVerifyResponse } from "@benki/shared";
+import { COUNTRY_BY_CODE, DEFAULT_LOCALE_BY_COUNTRY, type MessageKey, type OtpSendResponse, type OtpVerifyResponse, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -31,12 +31,12 @@ function otpHash(ctx: AppContext, phone: string, code: string) {
 
 export function requestOtp(ctx: AppContext, phone: string, countryCode: string): OtpSendResponse {
   const country = COUNTRY_BY_CODE[countryCode];
-  if (!country) throw badRequest(`Unsupported country ${countryCode}`);
+  if (!country) throw badRequest(msg("err.unsupportedCountry"));
   if (!phone.startsWith(country.callingCode)) {
-    throw badRequest(`Phone numbers in ${country.name} start with ${country.callingCode}`);
+    throw badRequest(msg("err.phonePrefix", { country: msg(`country.${country.code}` as MessageKey), prefix: country.callingCode }));
   }
   const existing = getUserByPhone(ctx, phone);
-  if (existing?.status === "CLOSED") throw unauthorized("This account is closed. Please contact support.");
+  if (existing?.status === "CLOSED") throw unauthorized(msg("err.accountClosed"));
 
   const now = ctx.now();
   const row = one<OtpRow>(ctx.db, "SELECT * FROM otps WHERE phone = ?", phone);
@@ -80,16 +80,16 @@ export function requestOtp(ctx: AppContext, phone: string, countryCode: string):
 
 export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId: string): OtpVerifyResponse {
   const row = one<OtpRow>(ctx.db, "SELECT * FROM otps WHERE phone = ?", phone);
-  if (!row || new Date(row.expires_at) <= ctx.now()) throw unauthorized("Code expired or invalid. Request a new one.");
+  if (!row || new Date(row.expires_at) <= ctx.now()) throw unauthorized(msg("err.otpExpired"));
   if (row.attempts >= OTP_MAX_ATTEMPTS) {
     run(ctx.db, "DELETE FROM otps WHERE phone = ?", phone);
-    throw unauthorized("Too many attempts. Request a new code.");
+    throw unauthorized(msg("err.otpTooMany"));
   }
   if (!safeEqual(otpHash(ctx, phone, code), row.code_hash)) {
     // Deliberately outside any transaction so the failed attempt is counted.
     run(ctx.db, "UPDATE otps SET attempts = attempts + 1 WHERE phone = ?", phone);
     const remaining = OTP_MAX_ATTEMPTS - row.attempts - 1;
-    throw unauthorized(remaining > 0 ? `Incorrect code. ${remaining} attempts left.` : "Too many attempts. Request a new code.");
+    throw unauthorized(remaining > 0 ? msg("err.otpIncorrect", { count: remaining }) : msg("err.otpTooMany"));
   }
 
   return withTx(ctx.db, () => {
@@ -116,7 +116,7 @@ export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId
     if (isNewDevice) {
       run(ctx.db, "INSERT INTO devices (user_id, device_id, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?)", user.id, deviceId, now, now);
       if (knownDevices.length > 0) {
-        notify(ctx, user.id, "SECURITY", "New device signed in to your account. If this wasn't you, contact support immediately.");
+        notify(ctx, user.id, "SECURITY", msg("notif.newDevice"));
         audit(ctx, { actorType: "USER", actorId: user.id, action: "NEW_DEVICE_SIGN_IN", entityType: "user", entityId: user.id, details: {} });
       }
     } else {
@@ -142,10 +142,10 @@ export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId
 export function authenticate(ctx: AppContext, token: string, deviceId: string | undefined): { user: UserRow; session: SessionRow } {
   const session = one<SessionRow>(ctx.db, "SELECT * FROM sessions WHERE token_hash = ?", sha256Hex(token));
   if (!session || session.revoked || new Date(session.expires_at) <= ctx.now()) {
-    throw unauthorized("Your session has expired. Please sign in again.");
+    throw unauthorized(msg("err.sessionExpired"));
   }
   // Session tokens are bound to the device that signed in.
-  if (deviceId && deviceId !== session.device_id) throw unauthorized("This session isn't valid on this device.");
+  if (deviceId && deviceId !== session.device_id) throw unauthorized(msg("err.wrongDevice"));
   const user = getUser(ctx, session.user_id);
   if (!user || user.status === "CLOSED") throw unauthorized();
   return { user, session };

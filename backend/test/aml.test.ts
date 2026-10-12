@@ -143,7 +143,7 @@ describe("transaction monitoring", () => {
     expect(res.status).toBe(202);
     await alice.signIn();
     const notes = (await alice.call("get", "/v1/notifications")).body.notifications;
-    expect(notes.some((n: { kind: string; message: string }) => n.kind === "SECURITY" && /New device/.test(n.message))).toBe(true);
+    expect(notes.some((n: { kind: string; message: string }) => n.kind === "SECURITY" && /new device/i.test(n.message))).toBe(true);
   });
 
   it("holds a large payment from an account dormant for 90+ days", async () => {

@@ -5,8 +5,7 @@ import {
   tierAtLeast,
   type GroupMember,
   type GroupPayoutRequest,
-  type SavingsGroup,
-} from "@benki/shared";
+  type SavingsGroup, msg, money } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -74,7 +73,7 @@ function displayName(ctx: AppContext, userId: string): string {
 function groupForMember(ctx: AppContext, userId: string, groupId: string): { group: GroupRow; me: MemberRow } {
   const group = one<GroupRow>(ctx.db, "SELECT * FROM savings_groups WHERE id = ?", groupId);
   const me = group && one<MemberRow>(ctx.db, "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?", groupId, userId);
-  if (!group || !me) throw notFound("Group not found");
+  if (!group || !me) throw notFound(msg("err.notFound"));
   return { group, me };
 }
 
@@ -136,7 +135,7 @@ function toGroup(ctx: AppContext, group: GroupRow, viewerId: string): SavingsGro
 
 function assertCanJoin(user: UserRow) {
   assertActive(user);
-  if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.GROUPS)) throw forbidden("Verify your identity (Tier 1) to use savings groups.");
+  if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.GROUPS)) throw forbidden(msg("err.tierRequired"));
 }
 
 export function listGroups(ctx: AppContext, userId: string): SavingsGroup[] {
@@ -155,9 +154,9 @@ export function createGroup(ctx: AppContext, user: UserRow, name: string): Savin
   assertCanJoin(user);
   requireWallet(user);
   const trimmed = name.trim();
-  if (trimmed.length < 2 || trimmed.length > 40) throw badRequest("Group name must be 2–40 characters");
+  if (trimmed.length < 2 || trimmed.length > 40) throw badRequest(msg("err.vaultName"));
   const count = one<{ n: number }>(ctx.db, "SELECT COUNT(*) AS n FROM group_members WHERE user_id = ?", user.id)!.n;
-  if (count >= MAX_GROUPS_PER_USER) throw conflict(`You can belong to up to ${MAX_GROUPS_PER_USER} groups`);
+  if (count >= MAX_GROUPS_PER_USER) throw conflict(msg("err.groupMax", { count: MAX_GROUPS_PER_USER }));
   return withTx(ctx.db, () => {
     const id = newId("GRP");
     // The pool is owned by the group, not a person, so it never counts toward anyone's balance cap.
@@ -181,22 +180,22 @@ export function createGroup(ctx: AppContext, user: UserRow, name: string): Savin
 
 export function addMember(ctx: AppContext, user: UserRow, groupId: string, phoneNumber: string): SavingsGroup {
   const { group, me } = groupForMember(ctx, user.id, groupId);
-  if (me.role !== "ADMIN") throw forbidden("Only the group admin can add members");
+  if (me.role !== "ADMIN") throw forbidden(msg("err.groupAdminOnly"));
   assertActive(user);
   const invitee = getUserByPhone(ctx, phoneNumber);
   // Same message whatever the reason, so the endpoint can't be used to probe accounts.
-  const cannotAdd = badRequest("That number can't be added. They need a verified Benki account in your country.");
+  const cannotAdd = badRequest(msg("err.groupCannotAdd"));
   if (!invitee || invitee.country_code !== group.country_code || !invitee.wallet_account_id) throw cannotAdd;
   if (invitee.status !== "ACTIVE" || !tierAtLeast(invitee.kyc_tier, MIN_TIER_FOR_SERVICE.GROUPS)) throw cannotAdd;
   if (one(ctx.db, "SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?", groupId, invitee.id)) {
-    throw conflict("They're already in this group");
+    throw conflict(msg("err.groupAlreadyMember"));
   }
-  if (members(ctx, groupId).length >= MAX_GROUP_MEMBERS) throw conflict(`Groups can have up to ${MAX_GROUP_MEMBERS} members`);
+  if (members(ctx, groupId).length >= MAX_GROUP_MEMBERS) throw conflict(msg("err.groupFull", { count: MAX_GROUP_MEMBERS }));
   const theirs = one<{ n: number }>(ctx.db, "SELECT COUNT(*) AS n FROM group_members WHERE user_id = ?", invitee.id)!.n;
-  if (theirs >= MAX_GROUPS_PER_USER) throw conflict("They're already in the maximum number of groups");
+  if (theirs >= MAX_GROUPS_PER_USER) throw conflict(msg("err.groupInviteeMax"));
   return withTx(ctx.db, () => {
     run(ctx.db, "INSERT INTO group_members (group_id, user_id, role, joined_at) VALUES (?, ?, 'MEMBER', ?)", groupId, invitee.id, ctx.nowIso());
-    notify(ctx, invitee.id, "ACCOUNT", `${displayName(ctx, user.id)} added you to the savings group "${group.name}".`);
+    notify(ctx, invitee.id, "ACCOUNT", msg("notif.groupAdded", { name: displayName(ctx, user.id), group: group.name }));
     audit(ctx, { actorType: "USER", actorId: user.id, action: "GROUP_MEMBER_ADDED", entityType: "group", entityId: groupId, details: { memberId: invitee.id } });
     return getGroup(ctx, user.id, groupId);
   });
@@ -241,13 +240,13 @@ export function requestPayout(
   const { group } = groupForMember(ctx, user.id, groupId);
   assertActive(user);
   const all_ = members(ctx, groupId);
-  if (all_.length < 2) throw conflict("Add at least one more member before requesting a payout");
-  if (!all_.some((m) => m.user_id === input.recipientUserId)) throw badRequest("Payouts can only go to a group member");
+  if (all_.length < 2) throw conflict(msg("err.groupNeedMembers"));
+  if (!all_.some((m) => m.user_id === input.recipientUserId)) throw badRequest(msg("err.groupPayoutMember"));
   const reason = input.reason.trim();
-  if (reason.length < 3 || reason.length > 140) throw badRequest("Give a reason (3–140 characters)");
-  if (input.amountMinor > balanceOf(ctx, group.account_id)) throw badRequest("The group pool doesn't hold that much");
+  if (reason.length < 3 || reason.length > 140) throw badRequest(msg("err.groupReason"));
+  if (input.amountMinor > balanceOf(ctx, group.account_id)) throw badRequest(msg("err.groupPoolShort"));
   if (one(ctx.db, "SELECT id FROM group_payout_requests WHERE group_id = ? AND status = 'PENDING'", groupId)) {
-    throw conflict("There's already a payout waiting for votes in this group");
+    throw conflict(msg("err.groupPendingPayout"));
   }
   return withTx(ctx.db, () => {
     const id = newId("GPR");
@@ -272,10 +271,14 @@ export function requestPayout(
       entityId: groupId,
       details: { requestId: id, recipientUserId: input.recipientUserId, amountMinor: input.amountMinor },
     });
-    const amount = formatAmount(input.amountMinor, currencyOf(user));
     for (const m of all_) {
       if (m.user_id !== user.id) {
-        notify(ctx, m.user_id, "ACCOUNT", `"${group.name}": ${displayName(ctx, user.id)} asked to pay ${amount} to ${displayName(ctx, input.recipientUserId)}. Open the group to vote.`);
+        notify(ctx, m.user_id, "ACCOUNT", msg("notif.groupPayoutRequested", {
+          group: group.name,
+          name: displayName(ctx, user.id),
+          amount: money(input.amountMinor, currencyOf(user)),
+          recipient: displayName(ctx, input.recipientUserId),
+        }));
       }
     }
     // A requester who isn't the recipient implicitly approves their own request.
@@ -295,11 +298,11 @@ export function votePayout(ctx: AppContext, user: UserRow, groupId: string, requ
 
 function castVote(ctx: AppContext, user: UserRow, group: GroupRow, requestId: string, approve: boolean) {
   const request = one<PayoutRow>(ctx.db, "SELECT * FROM group_payout_requests WHERE id = ? AND group_id = ?", requestId, group.id);
-  if (!request) throw notFound("Payout request not found");
-  if (request.status !== "PENDING") throw conflict("Voting on this payout has closed");
-  if (request.recipient_user_id === user.id) throw forbidden("You can't vote on a payout to yourself");
+  if (!request) throw notFound(msg("err.notFound"));
+  if (request.status !== "PENDING") throw conflict(msg("err.groupVotingClosed"));
+  if (request.recipient_user_id === user.id) throw forbidden(msg("err.groupSelfVote"));
   if (one(ctx.db, "SELECT 1 FROM group_payout_votes WHERE request_id = ? AND user_id = ?", requestId, user.id)) {
-    throw conflict("You've already voted on this payout");
+    throw conflict(msg("err.groupAlreadyVoted"));
   }
   run(
     ctx.db,
@@ -339,16 +342,13 @@ function decide(ctx: AppContext, group: GroupRow, request: PayoutRow, status: "E
     request.id,
   );
   audit(ctx, { actorType: "SYSTEM", actorId: null, action: `GROUP_PAYOUT_${status}`, entityType: "group", entityId: group.id, details: { requestId: request.id, why } });
-  const amount = formatAmount(request.amount_minor, currencyOf({ country_code: group.country_code } as UserRow));
+  const params = {
+    group: group.name,
+    amount: money(request.amount_minor, currencyOf({ country_code: group.country_code } as UserRow)),
+    recipient: displayName(ctx, request.recipient_user_id),
+  };
   for (const m of members(ctx, group.id)) {
-    notify(
-      ctx,
-      m.user_id,
-      "ACCOUNT",
-      status === "EXECUTED"
-        ? `"${group.name}": ${amount} was paid out to ${displayName(ctx, request.recipient_user_id)}.`
-        : `"${group.name}": the payout of ${amount} to ${displayName(ctx, request.recipient_user_id)} didn't go ahead. ${why}`,
-    );
+    notify(ctx, m.user_id, "ACCOUNT", msg(status === "EXECUTED" ? "notif.groupPayoutDone" : "notif.groupPayoutRejected", params));
   }
 }
 

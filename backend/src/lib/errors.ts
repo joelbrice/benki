@@ -1,36 +1,41 @@
-import type { ApiErrorBody, ApiErrorCode } from "@benki/shared";
+import { renderMsg, type ApiErrorBody, type ApiErrorCode, type Locale, type Msg } from "@benki/shared";
+
+/** Customer-facing text: a translatable message, or plain English for staff/internal errors. */
+export type Text = string | Msg;
 
 export class ApiError extends Error {
+  readonly text: Text;
+
   constructor(
     readonly status: number,
     readonly code: ApiErrorCode,
-    message: string,
+    text: Text,
   ) {
-    super(message);
+    super(renderMsg("en", text));
+    this.text = text;
   }
 
-  toBody(correlationId?: string): ApiErrorBody {
-    return { error: { code: this.code, message: this.message, correlationId } };
+  /** Rendered in the caller's language when the message is translatable. */
+  toBody(correlationId?: string, locale: Locale = "en"): ApiErrorBody {
+    return { error: { code: this.code, message: renderMsg(locale, this.text), correlationId } };
   }
 }
 
-export const badRequest = (message: string) => new ApiError(400, "VALIDATION_ERROR", message);
-export const unauthorized = (message = "Missing or invalid credentials") => new ApiError(401, "AUTH_ERROR", message);
-export const forbidden = (message = "You don't have permission to do that") => new ApiError(403, "FORBIDDEN", message);
-export const notFound = (message: string) => new ApiError(404, "NOT_FOUND", message);
-export const conflict = (message: string) => new ApiError(409, "CONFLICT", message);
-export const rateLimited = (message = "Too many requests — please wait and try again") =>
-  new ApiError(429, "RATE_LIMITED", message);
-export const pinInvalid = (message: string) => new ApiError(401, "PIN_INVALID", message);
-export const pinLocked = (message: string) => new ApiError(423, "PIN_LOCKED", message);
-export const limitExceeded = (message: string) => new ApiError(422, "LIMIT_EXCEEDED", message);
-export const insufficientFunds = (message = "Insufficient funds") => new ApiError(422, "INSUFFICIENT_FUNDS", message);
-export const providerUnavailable = (message = "The provider is unavailable — no money was moved. Please try again later.") =>
-  new ApiError(502, "PROVIDER_UNAVAILABLE", message);
+const m = (key: Msg["key"], params?: Msg["params"]): Msg => ({ key, params });
+
+export const badRequest = (text: Text) => new ApiError(400, "VALIDATION_ERROR", text);
+export const unauthorized = (text: Text = m("err.unauthorized")) => new ApiError(401, "AUTH_ERROR", text);
+export const forbidden = (text: Text = m("err.tierRequired")) => new ApiError(403, "FORBIDDEN", text);
+export const notFound = (text: Text) => new ApiError(404, "NOT_FOUND", text);
+export const conflict = (text: Text) => new ApiError(409, "CONFLICT", text);
+export const rateLimited = (text: Text = m("err.rateLimited")) => new ApiError(429, "RATE_LIMITED", text);
+export const pinInvalid = (text: Text) => new ApiError(401, "PIN_INVALID", text);
+export const pinLocked = (text: Text = m("err.pinLocked")) => new ApiError(423, "PIN_LOCKED", text);
+export const limitExceeded = (text: Text) => new ApiError(422, "LIMIT_EXCEEDED", text);
+export const insufficientFunds = (text: Text = m("err.insufficientFunds")) => new ApiError(422, "INSUFFICIENT_FUNDS", text);
+export const providerUnavailable = (text: Text = m("err.providerUnavailable")) => new ApiError(502, "PROVIDER_UNAVAILABLE", text);
 
 // Customer-facing compliance messages are deliberately generic: AML rules
 // prohibit "tipping off" a customer that they are under suspicion.
-export const complianceBlock = () =>
-  new ApiError(422, "COMPLIANCE_BLOCK", "This payment can't be completed. Please contact support if you need help.");
-export const accountRestricted = () =>
-  new ApiError(403, "ACCOUNT_RESTRICTED", "Your account is restricted. Please contact support.");
+export const complianceBlock = () => new ApiError(422, "COMPLIANCE_BLOCK", m("err.complianceBlock"));
+export const accountRestricted = () => new ApiError(403, "ACCOUNT_RESTRICTED", m("err.accountRestricted"));

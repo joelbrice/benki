@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { AdminDispute, Dispute } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -25,12 +26,12 @@ function toDispute(row: DisputeRow): Dispute {
 export function openDispute(ctx: AppContext, user: UserRow, transactionId: string, reason: string): Dispute {
   const tx = getTransaction(ctx, transactionId);
   if (!tx || tx.initiator_user_id !== user.id) throw notFound("Transaction not found");
-  if (tx.status !== "COMPLETED" || !DISPUTABLE_TYPES.has(tx.type)) throw badRequest("This transaction can't be disputed");
+  if (tx.status !== "COMPLETED" || !DISPUTABLE_TYPES.has(tx.type)) throw badRequest(msg("err.disputeNotAllowed"));
   const ageDays = (ctx.now().getTime() - new Date(tx.created_at).getTime()) / 86_400_000;
-  if (ageDays > DISPUTE_WINDOW_DAYS) throw badRequest(`Disputes must be raised within ${DISPUTE_WINDOW_DAYS} days`);
-  if (one(ctx.db, "SELECT id FROM disputes WHERE transaction_id = ?", transactionId)) throw conflict("You've already disputed this transaction");
+  if (ageDays > DISPUTE_WINDOW_DAYS) throw badRequest(msg("err.disputeWindow", { days: DISPUTE_WINDOW_DAYS }));
+  if (one(ctx.db, "SELECT id FROM disputes WHERE transaction_id = ?", transactionId)) throw conflict(msg("err.disputeDuplicate"));
   const trimmed = reason.trim();
-  if (trimmed.length < 10) throw badRequest("Tell us what went wrong (10+ characters)");
+  if (trimmed.length < 10) throw badRequest(msg("err.disputeReason"));
 
   return withTx(ctx.db, () => {
     const id = newId("DSP");

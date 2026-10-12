@@ -1,3 +1,4 @@
+import { msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { run } from "../db/query";
@@ -13,23 +14,23 @@ const PIN_LOCK_MS = 30 * 60 * 1000;
 
 /** Rejects PINs that are trivially guessable or derived from the customer's own data. */
 export function assertStrongPin(pin: string, user: UserRow) {
-  if (!/^\d{4,6}$/.test(pin)) throw badRequest("PIN must be 4 to 6 digits");
+  if (!/^\d{4,6}$/.test(pin)) throw badRequest(msg("err.pinFormat"));
   const digits = pin.split("").map(Number);
   const allSame = digits.every((d) => d === digits[0]);
   const ascending = digits.every((d, i) => i === 0 || d === digits[i - 1] + 1);
   const descending = digits.every((d, i) => i === 0 || d === digits[i - 1] - 1);
-  if (allSame || ascending || descending) throw badRequest("Choose a PIN that isn't a repeated or sequential pattern");
-  if (user.phone.endsWith(pin)) throw badRequest("Your PIN can't be part of your phone number");
+  if (allSame || ascending || descending) throw badRequest(msg("err.pinPattern"));
+  if (user.phone.endsWith(pin)) throw badRequest(msg("err.pinPhone"));
   if (user.date_of_birth) {
     const [year, month, day] = user.date_of_birth.split("-");
     if ([year, `${day}${month}`, `${month}${day}`, `${day}${month}${year.slice(2)}`].includes(pin)) {
-      throw badRequest("Your PIN can't be based on your date of birth");
+      throw badRequest(msg("err.pinBirthday"));
     }
   }
 }
 
 export function setPin(ctx: AppContext, user: UserRow, pin: string) {
-  if (user.pin_hash) throw conflict("A PIN is already set. Use change PIN instead.");
+  if (user.pin_hash) throw conflict(msg("err.pinAlreadySet"));
   assertStrongPin(pin, user);
   withTx(ctx.db, () => {
     run(ctx.db, "UPDATE users SET pin_hash = ?, pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?", hashSecret(pin), user.id);
@@ -54,9 +55,9 @@ export function changePin(ctx: AppContext, user: UserRow, currentPin: string, ne
  */
 export function verifyPin(ctx: AppContext, userRow: UserRow, pin: string | undefined) {
   const user = getUser(ctx, userRow.id)!;
-  if (!user.pin_hash) throw badRequest("Set a transaction PIN before moving money");
+  if (!user.pin_hash) throw badRequest(msg("err.pinNotSet"));
   if (user.pin_locked_until && new Date(user.pin_locked_until) > ctx.now()) {
-    throw pinLocked("Your PIN is locked after too many attempts. Try again later or contact support.");
+    throw pinLocked();
   }
   if (pin && verifySecret(pin, user.pin_hash)) {
     if (user.pin_failed_attempts > 0) run(ctx.db, "UPDATE users SET pin_failed_attempts = 0, pin_locked_until = NULL WHERE id = ?", user.id);
@@ -71,11 +72,11 @@ export function verifyPin(ctx: AppContext, userRow: UserRow, pin: string | undef
         new Date(ctx.now().getTime() + PIN_LOCK_MS).toISOString(),
         user.id,
       );
-      notify(ctx, user.id, "SECURITY", "Your PIN was locked for 30 minutes after 3 incorrect attempts. If this wasn't you, contact support.");
+      notify(ctx, user.id, "SECURITY", msg("notif.pinLocked"));
       audit(ctx, { actorType: "USER", actorId: user.id, action: "PIN_LOCKED", entityType: "user", entityId: user.id });
     });
-    throw pinLocked("Too many incorrect PIN attempts. Your PIN is locked for 30 minutes.");
+    throw pinLocked();
   }
   run(ctx.db, "UPDATE users SET pin_failed_attempts = ? WHERE id = ?", attempts, user.id);
-  throw pinInvalid(`Incorrect PIN. ${MAX_PIN_ATTEMPTS - attempts} attempt(s) left.`);
+  throw pinInvalid(msg("err.pinIncorrect", { count: MAX_PIN_ATTEMPTS - attempts }));
 }

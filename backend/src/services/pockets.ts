@@ -6,8 +6,7 @@ import {
   POCKET_CURRENCIES,
   tierAtLeast,
   type ConversionQuote,
-  type CurrencyPocket,
-} from "@benki/shared";
+  type CurrencyPocket, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -49,7 +48,7 @@ function pocketFor(ctx: AppContext, userId: string, currency: string): PocketRow
 function assertEligible(user: UserRow) {
   assertActive(user);
   if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.POCKETS)) {
-    throw forbidden("Verify your identity (Tier 1) to hold dollars and euros.");
+    throw forbidden(msg("err.pocketTier"));
   }
 }
 
@@ -65,7 +64,7 @@ export function listPockets(ctx: AppContext, user: UserRow): CurrencyPocket[] {
 export function openPocket(ctx: AppContext, user: UserRow, currency: string): CurrencyPocket[] {
   assertEligible(user);
   requireWallet(user);
-  if (!(POCKET_CURRENCIES as readonly string[]).includes(currency)) throw badRequest("That currency isn't available yet");
+  if (!(POCKET_CURRENCIES as readonly string[]).includes(currency)) throw badRequest(msg("err.pocketCurrency"));
   if (!pocketFor(ctx, user.id, currency)) {
     withTx(ctx.db, () => {
       const account = createCustomerAccount(ctx, "POCKET", currency, user.id, `${currency} pocket ${user.phone}`);
@@ -89,10 +88,10 @@ export function quoteConversion(
   const local = currencyOf(user);
   const { fromCurrency, toCurrency } = input;
   const foreign = fromCurrency === local ? toCurrency : toCurrency === local ? fromCurrency : null;
-  if (!foreign || foreign === local) throw badRequest("Convert between your wallet and one of your pockets");
-  if (!pocketFor(ctx, user.id, foreign)) throw badRequest(`Open a ${foreign} pocket first`);
+  if (!foreign || foreign === local) throw badRequest(msg("err.pocketPair"));
+  if (!pocketFor(ctx, user.id, foreign)) throw badRequest(msg("err.pocketOpenFirst", { currency: foreign }));
   const buy = convertMinor(input.sellAmountMinor, fromCurrency, toCurrency, FX_MARGIN_BPS);
-  if (!buy || buy <= 0) throw badRequest("That amount is too small to convert");
+  if (!buy || buy <= 0) throw badRequest(msg("err.amountTooSmall"));
 
   const id = newId("CVQ");
   const now = ctx.now();
@@ -118,14 +117,14 @@ export function quoteConversion(
 export function draftConversion(ctx: AppContext, user: UserRow, quoteId: string, deviceId: string | null): PaymentDraft {
   assertEligible(user);
   const quote = one<ConversionQuoteRow>(ctx.db, "SELECT * FROM conversion_quotes WHERE id = ?", quoteId);
-  if (!quote || quote.user_id !== user.id) throw notFound("Quote not found");
-  if (quote.used_at) throw conflict("This quote was already used. Get a new quote.");
-  if (new Date(quote.expires_at) <= ctx.now()) throw conflict("This quote has expired. Get a new quote.");
+  if (!quote || quote.user_id !== user.id) throw notFound(msg("err.quoteNotFound"));
+  if (quote.used_at) throw conflict(msg("err.quoteUsed"));
+  if (new Date(quote.expires_at) <= ctx.now()) throw conflict(msg("err.quoteExpired"));
   const local = currencyOf(user);
   const wallet = requireWallet(user);
   const buying = quote.from_currency === local;
   const pocket = pocketFor(ctx, user.id, buying ? quote.to_currency : quote.from_currency);
-  if (!pocket) throw badRequest("Open the pocket first");
+  if (!pocket) throw badRequest(msg("err.pocketOpenFirst", { currency: buying ? quote.to_currency : quote.from_currency }));
   run(ctx.db, "UPDATE conversion_quotes SET used_at = ? WHERE id = ?", ctx.nowIso(), quote.id);
 
   return {

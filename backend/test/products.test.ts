@@ -196,12 +196,15 @@ describe("USSD channel", () => {
   it("registers a feature-phone user and moves money through the same controls as the apps", async () => {
     const h = harness();
     const phone = "+221700000801";
-    expect((await dial(h, "s-reg-1", phone, "")).text).toMatch(/^CON Welcome to Benki/);
-    expect((await dial(h, "s-reg-1", phone, PIN)).text).toMatch(/^CON Re-enter/);
-    expect((await dial(h, "s-reg-1", phone, `${PIN}*${PIN}`)).text).toMatch(/^END Your Benki account is ready/);
+    // Senegal: French first, then Wolof and English.
+    expect((await dial(h, "sess-reg-1", phone, "")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. Wolof\n3. English");
+    expect((await dial(h, "sess-reg-1", phone, "3")).text).toMatch(/^CON Create your account/);
+    expect((await dial(h, "sess-reg-1", phone, `3*${PIN}`)).text).toMatch(/^CON Re-enter/);
+    expect((await dial(h, "sess-reg-1", phone, `3*${PIN}*${PIN}`)).text).toMatch(/^END Your Benki account is ready/);
 
     const alice = await h.customer("+221700000802");
     await alice.fund(20_000);
+    await alice.call("post", "/v1/me/locale", { locale: "en" });
     expect((await dial(h, "sess-1", alice.phone, "")).text).toMatch(/^CON Benki\n1\. Check balance/);
     expect((await dial(h, "sess-1", alice.phone, "1*0000")).text).toMatch(/^END Incorrect PIN|^END .*PIN/);
     expect((await dial(h, "sess-2", alice.phone, `1*${PIN}`)).text).toMatch(/^END Available: .*20,000/);
@@ -209,7 +212,7 @@ describe("USSD channel", () => {
     expect((await dial(h, "sess-3", alice.phone, "2*0700000801")).text).toMatch(/^CON Send to/);
     expect((await dial(h, "sess-3", alice.phone, "2*0700000801*1500")).text).toMatch(/Enter PIN to confirm/);
     const sent = await dial(h, "sess-3", alice.phone, `2*0700000801*1500*${PIN}`);
-    expect(sent.text).toMatch(/^END Transfer of .*1,500.* completed/);
+    expect(sent.text).toMatch(/^END Transfer: 1,500 XOF completed\.\nRef TXN_/);
     // A gateway retry of the same session replays instead of paying twice.
     expect((await dial(h, "sess-3", alice.phone, `2*0700000801*1500*${PIN}`)).text).toBe(sent.text);
     expect((await alice.balance()).ledgerBalanceMinor).toBe(18_500);
@@ -217,6 +220,11 @@ describe("USSD channel", () => {
     const tooMuch = await dial(h, "sess-4", alice.phone, `2*0700000801*25000*${PIN}`);
     expect(tooMuch.text).toMatch(/^END (Insufficient|The most)/);
     expect((await dial(h, "sess-5", alice.phone, `5*${PIN}`)).text).toMatch(/^END Last transactions:\n.*-.*1,500/);
+
+    // Switching language from the menu changes every following screen.
+    expect((await dial(h, "sess-6", alice.phone, "6")).text).toMatch(/^CON Choose language:\n1\. English\n2\. Français/);
+    await dial(h, "sess-6", alice.phone, "6*2");
+    expect((await dial(h, "sess-7", alice.phone, "")).text).toMatch(/^CON Benki\n1\. Consulter le solde/);
   });
 
   it("requires the gateway key on the production endpoint", async () => {

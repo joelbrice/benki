@@ -1,4 +1,4 @@
-import { formatAmount } from "@benki/shared";
+import { msg, money } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, run } from "../db/query";
@@ -22,7 +22,7 @@ export function finalizeProviderTransaction(ctx: AppContext, txId: string, statu
     const now = ctx.nowIso();
     if (status === "COMPLETED") {
       run(ctx.db, "UPDATE transactions SET status = 'COMPLETED', completed_at = ?, updated_at = ? WHERE id = ?", now, now, txId);
-      notify(ctx, tx.initiator_user_id, "TRANSACTION", `Delivered: ${formatAmount(tx.amount_minor, tx.currency)} to ${tx.counterparty_label}. Ref ${tx.id}.`);
+      notify(ctx, tx.initiator_user_id, "TRANSACTION", msg("notif.delivered", { amount: money(tx.amount_minor, tx.currency), name: tx.counterparty_label, ref: tx.id }));
     } else {
       const entry = entriesForTransaction(ctx, txId).find((e) => e.kind === "PAYMENT");
       if (entry) reverseEntry(ctx, entry.id, txId, `Refund: provider reported ${status}`);
@@ -31,7 +31,7 @@ export function finalizeProviderTransaction(ctx: AppContext, txId: string, statu
         ctx,
         tx.initiator_user_id,
         "TRANSACTION",
-        `Your transfer to ${tx.counterparty_label} didn't go through. ${formatAmount(tx.amount_minor + tx.fee_minor, tx.currency)} has been refunded. Ref ${tx.id}.`,
+        msg("notif.refunded", { name: tx.counterparty_label, amount: money(tx.amount_minor + tx.fee_minor, tx.currency), ref: tx.id }),
       );
     }
     audit(ctx, { actorType: "SYSTEM", actorId: null, action: `PROVIDER_${status}`, entityType: "transaction", entityId: txId, details: { reason } });

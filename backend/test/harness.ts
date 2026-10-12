@@ -29,6 +29,7 @@ export interface CustomerOptions {
   dateOfBirth?: string;
   pin?: string | null;
   device?: string;
+  locale?: string;
 }
 
 export function harness() {
@@ -56,11 +57,16 @@ export function harness() {
     let token: string = verified.body.token;
 
     const call = (method: "get" | "post", path: string, body?: object, deviceOverride?: string) => {
-      const r = request(app)[method](path).set("authorization", `Bearer ${token}`).set("x-device-id", deviceOverride ?? device);
+      const r = request(app)[method](path)
+        .set("authorization", `Bearer ${token}`)
+        .set("x-device-id", deviceOverride ?? device)
+        .set("accept-language", "en");
       return body ? r.send(body) : r;
     };
 
     const wallet = await call("post", "/v1/wallets");
+    // Tests assert on English text; customers otherwise start in their country's language.
+    await call("post", "/v1/me/locale", { locale: options.locale ?? "en" });
     if (options.pin !== null) {
       const pin = await call("post", "/v1/me/pin", { pin: options.pin ?? PIN });
       if (pin.status !== 201) throw new Error(`pin failed: ${JSON.stringify(pin.body)}`);

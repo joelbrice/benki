@@ -3,8 +3,7 @@ import {
   formatAmount,
   tierLimits,
   type LimitsResponse,
-  type TransactionType,
-} from "@benki/shared";
+  type TransactionType, msg, money } from "@benki/shared";
 import type { AppContext } from "../context";
 import { one } from "../db/query";
 import type { UserRow } from "../db/rows";
@@ -73,18 +72,18 @@ export function limitsUsage(ctx: AppContext, user: UserRow): LimitsResponse {
 
 export function enforceOutflowLimits(ctx: AppContext, user: UserRow, amountMinor: number) {
   const usage = limitsUsage(ctx, user);
-  const fmt = (n: number) => formatAmount(n, usage.currency);
-  const upgradeHint = user.kyc_tier === "TIER_2" ? "" : " Verify your identity to raise your limits.";
+  const amt = (n: number) => money(n, usage.currency);
+  // The upgrade hint is added by the apps (they know the customer's tier); the message stays factual.
   if (amountMinor > usage.perTransactionMinor) {
-    throw limitExceeded(`The most you can send in one payment is ${fmt(usage.perTransactionMinor)}.${upgradeHint}`);
+    throw limitExceeded(msg("err.limitPerTx", { limit: amt(usage.perTransactionMinor) }));
   }
   if (usage.dailyUsedMinor + amountMinor > usage.dailyLimitMinor) {
     const left = Math.max(0, usage.dailyLimitMinor - usage.dailyUsedMinor);
-    throw limitExceeded(`This would exceed your daily limit of ${fmt(usage.dailyLimitMinor)}. You can send ${fmt(left)} more today.${upgradeHint}`);
+    throw limitExceeded(msg("err.limitDaily", { limit: amt(usage.dailyLimitMinor), left: amt(left) }));
   }
   if (usage.monthlyUsedMinor + amountMinor > usage.monthlyLimitMinor) {
     const left = Math.max(0, usage.monthlyLimitMinor - usage.monthlyUsedMinor);
-    throw limitExceeded(`This would exceed your 30-day limit of ${fmt(usage.monthlyLimitMinor)}. You can send ${fmt(left)} more.${upgradeHint}`);
+    throw limitExceeded(msg("err.limitMonthly", { limit: amt(usage.monthlyLimitMinor), left: amt(left) }));
   }
 }
 
@@ -93,9 +92,6 @@ export function enforceHoldingsCap(ctx: AppContext, recipient: UserRow, incoming
   if (recipient.kind === "MERCHANT") return;
   const limits = tierLimits(recipient.country_code, recipient.kyc_tier);
   if (totalHoldings(ctx, recipient.id) + incomingMinor <= limits.maxBalanceMinor) return;
-  if (!isSelf) throw limitExceeded("The recipient can't receive this amount right now.");
-  throw limitExceeded(
-    `This would take your balance over the ${formatAmount(limits.maxBalanceMinor, currencyOf(recipient))} maximum for your verification level.` +
-      (recipient.kyc_tier === "TIER_2" ? "" : " Verify your identity to raise it."),
-  );
+  if (!isSelf) throw limitExceeded(msg("err.recipientCap"));
+  throw limitExceeded(msg("err.balanceCap", { limit: money(limits.maxBalanceMinor, currencyOf(recipient)) }));
 }

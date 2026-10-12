@@ -2,11 +2,19 @@ import {
   AFRICAN_COUNTRIES,
   COUNTRY_BY_CODE,
   customerFeeMinor,
-  DEFAULT_LOCALE_BY_COUNTRY,
   formatAmount,
+  intlTag,
+  LANGUAGES_BY_COUNTRY,
+  LOCALES,
+  money,
   parseMajorToMinor,
+  renderMsg,
+  t,
   USSD_SHORT_CODE,
   type FeeBearingType,
+  type Locale,
+  type MessageKey,
+  type MsgParams,
 } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -54,46 +62,65 @@ export function toE164(input: string, callingCode: string): string | null {
   return /^\+[1-9]\d{7,14}$/.test(e164) ? e164 : null;
 }
 
+/** One USSD screen's worth of context: who is dialling and in which language. */
+interface Screen {
+  ctx: AppContext;
+  locale: Locale;
+  tr: (key: MessageKey, params?: MsgParams) => string;
+}
+
+function screen(ctx: AppContext, locale: Locale): Screen {
+  return { ctx, locale, tr: (key, params) => t(locale, key, params) };
+}
+
 export async function handleUssd(ctx: AppContext, req: UssdRequest): Promise<string> {
   const country = countryForPhone(req.phoneNumber);
-  if (!country) return end(["Benki isn't available on this network yet."]);
+  if (!country) return end([t("en", "ussd.notAvailable")]);
   const steps = req.text === "" ? [] : req.text.split("*");
+  const user = getUserByPhone(ctx, req.phoneNumber);
+  const s = screen(ctx, user?.locale ?? LANGUAGES_BY_COUNTRY[country.code]?.[0] ?? "en");
   try {
-    const user = getUserByPhone(ctx, req.phoneNumber);
-    if (!user || !user.pin_hash || !user.wallet_account_id) return register(ctx, req.phoneNumber, country.code, user, steps);
-    if (user.status === "CLOSED") return end(["This account is closed. Please contact support."]);
-    return await menu(ctx, user, req.sessionId, steps);
+    if (!user || !user.pin_hash || !user.wallet_account_id) return register(s, req.phoneNumber, country.code, user, steps);
+    if (user.status === "CLOSED") return end([s.tr("ussd.closed")]);
+    return await menu(s, user, req.sessionId, steps);
   } catch (error) {
-    if (error instanceof ApiError) return end([error.message]);
+    if (error instanceof ApiError) return end([renderMsg(s.locale, error.text)]);
     throw error;
   }
 }
 
-function register(ctx: AppContext, phone: string, countryCode: string, existing: UserRow | undefined, steps: string[]): string {
-  if (steps.length === 0) {
-    return con(["Welcome to Benki!", "Create your account in seconds.", "Choose a 4-digit PIN:"]);
-  }
-  const [pin, confirm] = steps;
-  if (!PIN_RE.test(pin)) return end(["PIN must be 4 to 6 digits. Dial again to retry."]);
-  if (steps.length === 1) return con(["Re-enter your PIN to confirm:"]);
-  if (confirm !== pin) return end(["The PINs didn't match. Dial again to retry."]);
+function languageOptions(countryCode: string, all: boolean): Locale[] {
+  if (all) return LOCALES.map((l) => l.code);
+  const local = LANGUAGES_BY_COUNTRY[countryCode] ?? ["en"];
+  return local.includes("en") ? local : [...local, "en"];
+}
 
+const languageLines = (options: Locale[]) => options.map((code, i) => `${i + 1}. ${LOCALES.find((l) => l.code === code)!.name}`);
+
+/** Registration: language → PIN → confirm PIN. The SIM proves possession of the number. */
+function register(s0: Screen, phone: string, countryCode: string, existing: UserRow | undefined, steps: string[]): string {
+  const options = languageOptions(countryCode, false);
+  if (steps.length === 0) return con([s0.tr("ussd.welcome"), ...languageLines(options)]);
+  const locale = options[Number(steps[0]) - 1];
+  if (!locale) return end([s0.tr("ussd.invalidChoice")]);
+  const s = screen(s0.ctx, locale);
+  const [, pin, confirm] = steps;
+  if (steps.length === 1) return con([s.tr("ussd.createAccount"), s.tr("ussd.choosePin")]);
+  if (!PIN_RE.test(pin)) return end([s.tr("ussd.pinFormat")]);
+  if (steps.length === 2) return con([s.tr("ussd.confirmPin")]);
+  if (confirm !== pin) return end([s.tr("ussd.pinMismatch")]);
+
+  const ctx = s.ctx;
   withTx(ctx.db, () => {
     let user = existing;
     const now = ctx.nowIso();
     if (!user) {
       const id = newId("USR");
-      run(
-        ctx.db,
-        "INSERT INTO users (id, phone, country_code, locale, created_at) VALUES (?, ?, ?, ?, ?)",
-        id,
-        phone,
-        countryCode,
-        DEFAULT_LOCALE_BY_COUNTRY[countryCode] ?? "en",
-        now,
-      );
+      run(ctx.db, "INSERT INTO users (id, phone, country_code, locale, created_at) VALUES (?, ?, ?, ?, ?)", id, phone, countryCode, locale, now);
       audit(ctx, { actorType: "USER", actorId: id, action: "USER_REGISTERED", entityType: "user", entityId: id, details: { countryCode, channel: "USSD" } });
       user = getUser(ctx, id)!;
+    } else {
+      run(ctx.db, "UPDATE users SET locale = ? WHERE id = ?", locale, user.id);
     }
     if (!user.wallet_account_id) {
       const account = createCustomerAccount(ctx, "WALLET", currencyOf(user), user.id, `Wallet ${user.phone}`);
@@ -103,54 +130,70 @@ function register(ctx: AppContext, phone: string, countryCode: string, existing:
     }
     if (!user.pin_hash) setPin(ctx, user, pin);
   });
-  return end(["Your Benki account is ready.", `Dial ${USSD_SHORT_CODE} to check your balance, send money and more.`]);
+  return end([s.tr("ussd.ready"), s.tr("ussd.dialAgain", { code: USSD_SHORT_CODE })]);
 }
 
-const MAIN_MENU = ["Benki", "1. Check balance", "2. Send money", "3. Buy airtime", "4. Withdraw cash", "5. Mini statement", "0. Exit"];
-
-async function menu(ctx: AppContext, user: UserRow, sessionId: string, steps: string[]): Promise<string> {
-  if (steps.length === 0) return con(MAIN_MENU);
+async function menu(s: Screen, user: UserRow, sessionId: string, steps: string[]): Promise<string> {
+  if (steps.length === 0) {
+    return con([
+      "Benki",
+      `1. ${s.tr("ussd.menuBalance")}`,
+      `2. ${s.tr("ussd.menuSend")}`,
+      `3. ${s.tr("ussd.menuAirtime")}`,
+      `4. ${s.tr("ussd.menuWithdraw")}`,
+      `5. ${s.tr("ussd.menuStatement")}`,
+      `6. ${s.tr("ussd.menuLanguage")}`,
+      `0. ${s.tr("ussd.menuExit")}`,
+    ]);
+  }
   const [choice, ...rest] = steps;
   switch (choice) {
     case "1":
-      return balance(ctx, user, rest);
+      return balance(s, user, rest);
     case "2":
-      return sendMoney(ctx, user, sessionId, rest);
+      return sendMoney(s, user, sessionId, rest);
     case "3":
-      return airtime(ctx, user, sessionId, rest);
+      return airtime(s, user, sessionId, rest);
     case "4":
-      return withdraw(ctx, user, sessionId, rest);
+      return withdraw(s, user, sessionId, rest);
     case "5":
-      return miniStatement(ctx, user, rest);
+      return miniStatement(s, user, rest);
+    case "6":
+      return language(s, user, rest);
     case "0":
-      return end(["Thank you for using Benki."]);
+      return end([s.tr("ussd.thanks")]);
     default:
-      return end(["Invalid choice. Dial again to retry."]);
+      return end([s.tr("ussd.invalidChoice")]);
   }
 }
 
-function balance(ctx: AppContext, user: UserRow, rest: string[]): string {
-  if (rest.length === 0) return con(["Enter your PIN:"]);
-  verifyPin(ctx, user, rest[0]);
-  const wallet = walletView(ctx, user.wallet_account_id!);
-  return end([`Available: ${formatAmount(wallet.availableBalanceMinor, wallet.currency)}`, `Ref ${new Date(ctx.now()).toISOString().slice(0, 16).replace("T", " ")}`]);
+function language(s: Screen, user: UserRow, rest: string[]): string {
+  const options = languageOptions(user.country_code, true);
+  if (rest.length === 0) return con([s.tr("ussd.chooseLanguage"), ...languageLines(options)]);
+  const locale = options[Number(rest[0]) - 1];
+  if (!locale) return end([s.tr("ussd.invalidChoice")]);
+  run(s.ctx.db, "UPDATE users SET locale = ? WHERE id = ?", locale, user.id);
+  return end([t(locale, "ussd.languageSaved")]);
 }
 
-function amountOf(input: string, currency: string): number | null {
-  return parseMajorToMinor(input, currency);
+function balance(s: Screen, user: UserRow, rest: string[]): string {
+  if (rest.length === 0) return con([s.tr("ussd.enterPin")]);
+  verifyPin(s.ctx, user, rest[0]);
+  const wallet = walletView(s.ctx, user.wallet_account_id!);
+  return end([s.tr("ussd.available", { amount: money(wallet.availableBalanceMinor, wallet.currency) }), s.ctx.nowIso().slice(0, 16).replace("T", " ")]);
 }
 
-function confirmLines(type: FeeBearingType, amountMinor: number, currency: string, what: string): string[] {
+function confirmLines(s: Screen, type: FeeBearingType, amountMinor: number, currency: string, what: string): string[] {
   const fee = customerFeeMinor(type, amountMinor);
   return [
-    `${what}: ${formatAmount(amountMinor, currency)}`,
-    fee ? `Fee: ${formatAmount(fee, currency)}. Total ${formatAmount(amountMinor + fee, currency)}` : "No fee",
-    "Enter PIN to confirm:",
+    `${what}: ${formatAmount(amountMinor, currency, intlTag(s.locale))}`,
+    fee ? s.tr("ussd.fee", { fee: money(fee, currency), total: money(amountMinor + fee, currency) }) : s.tr("ussd.noFee"),
+    s.tr("ussd.confirmWithPin"),
   ];
 }
 
 async function pay(
-  ctx: AppContext,
+  s: Screen,
   user: UserRow,
   sessionId: string,
   operation: string,
@@ -158,7 +201,7 @@ async function pay(
   body: Record<string, unknown>,
   build: (u: UserRow) => PaymentDraft,
 ): Promise<string> {
-  const result = await runPayment(ctx, {
+  const result = await runPayment(s.ctx, {
     user,
     deviceId: null,
     operation: `ussd-${operation}`,
@@ -166,69 +209,69 @@ async function pay(
     body: { ...body, idempotencyKey: `ussd:${sessionId}`, pin },
     requirePin: true,
     build,
+    locale: s.locale,
   });
   const payload = result.body as { message?: string; transaction?: { id: string }; error?: { message: string } };
   if (payload.error) return end([payload.error.message]);
-  return end([payload.message ?? "Done.", payload.transaction ? `Ref ${payload.transaction.id}` : ""].filter(Boolean));
+  return end([payload.message ?? s.tr("ussd.done"), payload.transaction ? s.tr("ussd.ref", { ref: payload.transaction.id }) : ""].filter(Boolean));
 }
 
-async function sendMoney(ctx: AppContext, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
+async function sendMoney(s: Screen, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
   const country = COUNTRY_BY_CODE[user.country_code];
   const currency = currencyOf(user);
   const [phoneInput, amountInput, pin] = rest;
-  if (rest.length === 0) return con(["Enter the recipient's phone number:"]);
+  if (rest.length === 0) return con([s.tr("ussd.recipientPhone")]);
   const phone = toE164(phoneInput, country.callingCode);
-  if (!phone) return end(["That phone number isn't valid. Dial again to retry."]);
-  const recipient = getUserByPhone(ctx, phone);
-  if (!recipient || recipient.id === user.id || recipient.country_code !== user.country_code) {
-    return end(["No Benki account in your country is registered to that number."]);
-  }
-  if (rest.length === 1) return con([`Send to ${recipient.full_name ?? maskPhone(recipient.phone)}`, `Enter amount (${currency}):`]);
-  const amountMinor = amountOf(amountInput, currency);
-  if (!amountMinor) return end(["That amount isn't valid. Dial again to retry."]);
-  if (rest.length === 2) return con(confirmLines("P2P", amountMinor, currency, `Send to ${recipient.full_name ?? maskPhone(recipient.phone)}`));
-  return pay(ctx, user, sessionId, "p2p", pin, { destinationPhoneNumber: phone, amountMinor }, (u) =>
-    draftP2P(ctx, u, { destinationPhoneNumber: phone, amountMinor }, null),
+  if (!phone) return end([s.tr("ussd.invalidPhone")]);
+  const recipient = getUserByPhone(s.ctx, phone);
+  if (!recipient || recipient.id === user.id || recipient.country_code !== user.country_code) return end([s.tr("ussd.noRecipient")]);
+  const name = recipient.full_name ?? maskPhone(recipient.phone);
+  if (rest.length === 1) return con([s.tr("ussd.sendTo", { name }), s.tr("ussd.enterAmount", { currency })]);
+  const amountMinor = parseMajorToMinor(amountInput, currency);
+  if (!amountMinor) return end([s.tr("ussd.invalidAmount")]);
+  if (rest.length === 2) return con(confirmLines(s, "P2P", amountMinor, currency, s.tr("ussd.sendTo", { name })));
+  return pay(s, user, sessionId, "p2p", pin, { destinationPhoneNumber: phone, amountMinor }, (u) =>
+    draftP2P(s.ctx, u, { destinationPhoneNumber: phone, amountMinor }, null),
   );
 }
 
-async function airtime(ctx: AppContext, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
+async function airtime(s: Screen, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
   const networks = COUNTRY_BY_CODE[user.country_code].mobileMoneyProviders;
   const currency = currencyOf(user);
   const [networkInput, amountInput, pin] = rest;
-  if (rest.length === 0) return con(["Choose network:", ...networks.map((n, i) => `${i + 1}. ${n.label}`)]);
+  if (rest.length === 0) return con([s.tr("ussd.chooseNetwork"), ...networks.map((n, i) => `${i + 1}. ${n.label}`)]);
   const network = networks[Number(networkInput) - 1];
-  if (!network) return end(["Invalid choice. Dial again to retry."]);
-  if (rest.length === 1) return con([`Airtime for ${user.phone}`, `Enter amount (${currency}):`]);
-  const amountMinor = amountOf(amountInput, currency);
-  if (!amountMinor) return end(["That amount isn't valid. Dial again to retry."]);
-  if (rest.length === 2) return con(confirmLines("AIRTIME", amountMinor, currency, `${network.label} airtime`));
-  return pay(ctx, user, sessionId, "airtime", pin, { providerId: network.id, amountMinor }, (u) =>
-    draftAirtime(ctx, u, { providerId: network.id, amountMinor }, null),
+  if (!network) return end([s.tr("ussd.invalidChoice")]);
+  if (rest.length === 1) return con([s.tr("ussd.airtimeFor", { phone: user.phone }), s.tr("ussd.enterAmount", { currency })]);
+  const amountMinor = parseMajorToMinor(amountInput, currency);
+  if (!amountMinor) return end([s.tr("ussd.invalidAmount")]);
+  if (rest.length === 2) return con(confirmLines(s, "AIRTIME", amountMinor, currency, s.tr("ussd.airtimeOf", { network: network.label })));
+  return pay(s, user, sessionId, "airtime", pin, { providerId: network.id, amountMinor }, (u) =>
+    draftAirtime(s.ctx, u, { providerId: network.id, amountMinor }, null),
   );
 }
 
-async function withdraw(ctx: AppContext, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
+async function withdraw(s: Screen, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
   const agents = COUNTRY_BY_CODE[user.country_code].agents;
   const currency = currencyOf(user);
   const [agentInput, amountInput, pin] = rest;
-  if (rest.length === 0) return con(["Choose agent:", ...agents.map((a, i) => `${i + 1}. ${a.name}`)]);
+  if (rest.length === 0) return con([s.tr("ussd.chooseAgent"), ...agents.map((a, i) => `${i + 1}. ${a.name}`)]);
   const agent = agents[Number(agentInput) - 1];
-  if (!agent) return end(["Invalid choice. Dial again to retry."]);
-  if (rest.length === 1) return con([agent.name, `Enter amount (${currency}):`]);
-  const amountMinor = amountOf(amountInput, currency);
-  if (!amountMinor) return end(["That amount isn't valid. Dial again to retry."]);
-  if (rest.length === 2) return con(confirmLines("CASH_OUT", amountMinor, currency, `Withdraw at ${agent.name}`));
-  return pay(ctx, user, sessionId, "cash-out", pin, { agentId: agent.id, amountMinor }, (u) =>
+  if (!agent) return end([s.tr("ussd.invalidChoice")]);
+  if (rest.length === 1) return con([agent.name, s.tr("ussd.enterAmount", { currency })]);
+  const amountMinor = parseMajorToMinor(amountInput, currency);
+  if (!amountMinor) return end([s.tr("ussd.invalidAmount")]);
+  if (rest.length === 2) return con(confirmLines(s, "CASH_OUT", amountMinor, currency, s.tr("ussd.withdrawAt", { agent: agent.name })));
+  return pay(s, user, sessionId, "cash-out", pin, { agentId: agent.id, amountMinor }, (u) =>
     draftCashOut(u, { agentId: agent.id, amountMinor }, null),
   );
 }
 
-function miniStatement(ctx: AppContext, user: UserRow, rest: string[]): string {
-  if (rest.length === 0) return con(["Enter your PIN:"]);
-  verifyPin(ctx, user, rest[0]);
+function miniStatement(s: Screen, user: UserRow, rest: string[]): string {
+  if (rest.length === 0) return con([s.tr("ussd.enterPin")]);
+  verifyPin(s.ctx, user, rest[0]);
   const rows = all<TransactionRow>(
-    ctx.db,
+    s.ctx.db,
     `SELECT * FROM transactions
      WHERE (initiator_user_id = ? OR (counterparty_user_id = ? AND status IN ('COMPLETED', 'REVERSED')))
        AND status IN ('COMPLETED', 'REVERSED', 'PENDING', 'PENDING_REVIEW')
@@ -236,14 +279,15 @@ function miniStatement(ctx: AppContext, user: UserRow, rest: string[]): string {
     user.id,
     user.id,
   );
-  if (!rows.length) return end(["No transactions yet."]);
+  if (!rows.length) return end([s.tr("ussd.noTransactions")]);
+  const tag = intlTag(s.locale);
   return end([
-    "Last transactions:",
-    ...rows.map((t) => {
-      const sign = directionFor(t, user.id) === "CREDIT" ? "+" : "-";
-      const receiving = t.initiator_user_id !== user.id && t.receive_amount_minor !== null;
-      const amount = receiving ? formatAmount(t.receive_amount_minor!, t.receive_currency!) : formatAmount(t.amount_minor, t.currency);
-      return `${t.created_at.slice(5, 10)} ${sign}${amount}`;
+    s.tr("ussd.lastTransactions"),
+    ...rows.map((tx) => {
+      const sign = directionFor(tx, user.id) === "CREDIT" ? "+" : "-";
+      const receiving = tx.initiator_user_id !== user.id && tx.receive_amount_minor !== null;
+      const amount = receiving ? formatAmount(tx.receive_amount_minor!, tx.receive_currency!, tag) : formatAmount(tx.amount_minor, tx.currency, tag);
+      return `${tx.created_at.slice(5, 10)} ${sign}${amount}`;
     }),
   ]);
 }
