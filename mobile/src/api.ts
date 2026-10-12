@@ -2,17 +2,21 @@ import { Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import type {
   ApiErrorBody,
+  ConversionQuote,
+  CurrencyPocket,
   Dispute,
   FeeQuote,
   FxQuote,
   KycResponse,
   LimitsResponse,
+  Locale,
   Loan,
   LoanOffer,
   NameEnquiryResponse,
   Notification,
   OtpSendResponse,
   OtpVerifyResponse,
+  PaymentRequest,
   PaymentResponse,
   PurposeCode,
   SavingsGroup,
@@ -38,6 +42,15 @@ export class ApiRequestError extends Error {
   ) {
     super(body.error.message);
   }
+  get code() {
+    return this.body.error.code;
+  }
+}
+
+/** The UI language, sent with every request so errors and confirmations come back translated. */
+let requestLocale = "en";
+export function setRequestLocale(locale: string) {
+  requestLocale = locale;
 }
 
 let cachedDeviceId: string | null = null;
@@ -62,15 +75,14 @@ async function request<T>(path: string, options: { method?: string; token?: stri
       method: options.method ?? "GET",
       headers: {
         "content-type": "application/json",
+        "accept-language": requestLocale,
         "x-device-id": await deviceId(),
         ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
       },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
-    throw new ApiRequestError(0, {
-      error: { code: "INTERNAL_ERROR", message: "Can't reach Benki right now. Check your connection and try again." },
-    });
+    throw new ApiRequestError(0, { error: { code: "NETWORK_ERROR", message: "" } });
   }
   if (res.status === 204) return undefined as T;
   const json = await res.json().catch(() => null);
@@ -100,6 +112,21 @@ export function customerApi(token: string) {
     me: () => get<{ user: UserProfile; wallet: WalletAccount | null }>("/v1/me"),
     limits: () => get<LimitsResponse>("/v1/limits"),
     notifications: () => get<{ notifications: Notification[] }>("/v1/notifications"),
+    setLocale: (locale: Locale) => post<{ user: UserProfile }>("/v1/me/locale", { locale }),
+    markNotificationsRead: () => post<void>("/v1/notifications/read"),
+    pockets: () => get<{ pockets: CurrencyPocket[] }>("/v1/pockets"),
+    openPocket: (currency: string) => post<{ pockets: CurrencyPocket[] }>("/v1/pockets", { currency }),
+    conversionQuote: (fromCurrency: string, toCurrency: string, sellAmountMinor: number) =>
+      post<ConversionQuote>("/v1/pockets/quote", { fromCurrency, toCurrency, sellAmountMinor }),
+    convert: (body: Pin & { idempotencyKey: string; quoteId: string }) =>
+      post<PaymentResponse & { pockets: CurrencyPocket[] }>("/v1/pockets/convert", body),
+    requests: () => get<{ requests: PaymentRequest[] }>("/v1/requests"),
+    requestMoney: (payerPhoneNumber: string, amountMinor: number, note?: string) =>
+      post<{ request: PaymentRequest }>("/v1/requests", { payerPhoneNumber, amountMinor, note }),
+    payRequest: (requestId: string, body: Pin & { idempotencyKey: string }) =>
+      post<PaymentResponse & { request: PaymentRequest }>(`/v1/requests/${requestId}/pay`, body),
+    declineRequest: (requestId: string) => post<{ request: PaymentRequest }>(`/v1/requests/${requestId}/decline`),
+    cancelRequest: (requestId: string) => post<{ request: PaymentRequest }>(`/v1/requests/${requestId}/cancel`),
     setPin: (pin: string) => post<{ user: UserProfile }>("/v1/me/pin", { pin }),
     changePin: (currentPin: string, newPin: string) => post<void>("/v1/me/pin/change", { currentPin, newPin }),
     kycTier1: (body: { fullName: string; dateOfBirth: string; nationalId: string }) => post<KycResponse>("/v1/kyc/tier1", body),

@@ -1,81 +1,82 @@
 import { useState } from "react";
+import { Pressable, Text, View } from "react-native";
 import {
   AFRICAN_COUNTRIES,
   banksFor,
   COUNTRY_BY_CODE,
-  formatAmount,
   parseMajorToMinor,
   PURPOSE_CODES,
+  type MessageKey,
   type NameEnquiryResponse,
   type PurposeCode,
 } from "@benki/shared";
-import { ConfirmPayment, type PaymentIntent } from "../components/ConfirmPayment";
-import { AmountField, Banner, Card, ChipSelect, Field, Muted, PrimaryButton, SecondaryButton, Title, useAction } from "../components/ui";
+import { AmountField, Banner, Card, ChipSelect, Field, Icon, LinkButton, Muted, PrimaryButton, ScreenHeader, SecondaryButton, Segmented, useAction } from "../components/ui";
+import { useI18n, type I18n } from "../i18n";
 import type { Session } from "../session";
+import { colors } from "../theme/colors";
+import { useIntent } from "./flow";
 
-function useIntent(session: Session, reset: () => void) {
-  const [intent, setIntent] = useState<PaymentIntent | null>(null);
-  const screen = intent ? (
-    <ConfirmPayment
-      api={session.api}
-      intent={intent}
-      onDone={() => {
-        setIntent(null);
-        reset();
-        void session.refresh();
-      }}
-      onCancel={() => setIntent(null)}
-    />
-  ) : null;
-  return { setIntent, screen };
+/** Translates the account-number hints that come from the provider catalog. */
+export function hintLabel(hint: string, t: I18n["t"]): string {
+  if (hint === "11-digit meter number") return t("hint.meter");
+  if (hint === "Account number") return t("hint.account");
+  if (hint === "Smartcard number") return t("hint.smartcard");
+  if (hint === "Student reference") return t("hint.student");
+  if (hint === "10-digit NUBAN") return t("hint.nuban");
+  if (hint === "Account number (RIB)") return t("hint.rib");
+  const range = hint.match(/^(\d+–\d+) digit account number$/);
+  return range ? t("hint.digits", { range: range[1] }) : hint;
 }
 
+type SendMode = "benki" | "momo" | "bank" | "abroad";
+
 export function Send({ session }: { session: Session }) {
+  const { t, money, date } = useI18n();
   const { api, country, wallet, user } = session;
-  type Mode = "benki" | "momo" | "bank" | "abroad";
-  const [mode, setMode] = useState<Mode>("benki");
-  const banks = banksFor(country.code);
-  const [bankId, setBankId] = useState(banks[0]?.id ?? "");
-  const [bankAccount, setBankAccount] = useState("");
-  const [resolved, setResolved] = useState<NameEnquiryResponse | null>(null);
+  const [mode, setMode] = useState<SendMode>(session.preset && ["benki", "momo", "bank", "abroad"].includes(session.preset) ? (session.preset as SendMode) : "benki");
   const [phone, setPhone] = useState(country.callingCode);
   const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
   const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0].id);
   const others = AFRICAN_COUNTRIES.filter((c) => c.code !== country.code);
   const [dest, setDest] = useState(others[0].code);
   const [purpose, setPurpose] = useState<PurposeCode>("FAMILY_SUPPORT");
+  const banks = banksFor(country.code);
+  const [bankId, setBankId] = useState(banks[0]?.id ?? "");
+  const [bankAccount, setBankAccount] = useState("");
+  const [resolved, setResolved] = useState<NameEnquiryResponse | null>(null);
   const { busy, error, setError, run } = useAction();
   const { setIntent, screen } = useIntent(session, () => {
     setAmount("");
+    setNote("");
     setResolved(null);
     setBankAccount("");
   });
   if (screen) return screen;
 
+  const countryName = (code: string) => t(`country.${code}` as MessageKey);
   const amountMinor = parseMajorToMinor(amount, wallet.currency);
+  const amountRow = (): [string, string] => [t("common.amount"), money(amountMinor!, wallet.currency)];
+  const noteRows = (): [string, string][] => (note ? [[t("common.note"), note]] : []);
+
   const review = () => {
-    if (!amountMinor) return setError("Enter a valid amount");
+    if (!amountMinor) return setError(t("common.invalidAmount"));
+    setError(null);
     if (mode === "benki") {
       setIntent({
-        title: "Send to a Benki user",
-        rows: [
-          ["To", phone],
-          ["Amount", formatAmount(amountMinor, wallet.currency)],
-        ],
+        title: t("send.toBenki"),
+        rows: [[t("common.to"), phone], amountRow(), ...noteRows()],
         currency: wallet.currency,
         amountMinor,
         feeType: "P2P",
         requirePin: true,
-        submit: (pin, idempotencyKey) => api.p2p({ idempotencyKey, pin, destinationPhoneNumber: phone, amountMinor }),
+        submit: (pin, idempotencyKey) => api.p2p({ idempotencyKey, pin, destinationPhoneNumber: phone, amountMinor, note: note || undefined }),
       });
     } else if (mode === "momo") {
       const provider = country.mobileMoneyProviders.find((p) => p.id === providerId)!;
       setIntent({
-        title: `Send to ${provider.label}`,
-        rows: [
-          ["To", `${provider.label} · ${phone}`],
-          ["Amount", formatAmount(amountMinor, wallet.currency)],
-        ],
+        title: t("send.toProvider", { provider: provider.label }),
+        rows: [[t("common.to"), `${provider.label} · ${phone}`], amountRow()],
         currency: wallet.currency,
         amountMinor,
         feeType: "MOBILE_MONEY_PAYOUT",
@@ -83,16 +84,11 @@ export function Send({ session }: { session: Session }) {
         submit: (pin, idempotencyKey) => api.mobileMoney({ idempotencyKey, pin, providerId, destinationPhoneNumber: phone, amountMinor }),
       });
     } else if (mode === "bank") {
-      if (!resolved) return setError("Look up the account first");
+      if (!resolved) return setError(t("send.lookUpFirst"));
       const bank = banks.find((b) => b.id === resolved.bankId)!;
       setIntent({
-        title: `Send to ${bank.name}`,
-        rows: [
-          ["Account name", resolved.accountName],
-          ["Bank", bank.name],
-          ["Account", resolved.accountNumber],
-          ["Amount", formatAmount(amountMinor, wallet.currency)],
-        ],
+        title: t("send.toBank", { bank: bank.name }),
+        rows: [[t("send.accountName"), resolved.accountName], [t("send.bankName"), bank.name], [t("send.account"), resolved.accountNumber], amountRow()],
         currency: wallet.currency,
         amountMinor,
         feeType: "BANK_TRANSFER",
@@ -101,17 +97,19 @@ export function Send({ session }: { session: Session }) {
           api.bankTransfer({ idempotencyKey, pin, bankId: resolved.bankId, accountNumber: resolved.accountNumber, accountName: resolved.accountName, amountMinor }),
       });
     } else {
-      run(async () => {
+      void run(async () => {
         const q = await api.fxQuote(dest, amountMinor);
         setIntent({
-          title: `Send to ${COUNTRY_BY_CODE[dest].name}`,
+          title: t("send.toCountry", { country: countryName(dest) }),
           rows: [
-            ["To", phone],
-            ["You send", formatAmount(q.sendAmountMinor, q.sendCurrency)],
-            ["Fee", formatAmount(q.feeMinor, q.sendCurrency)],
-            ["Total", formatAmount(q.totalDebitMinor, q.sendCurrency)],
-            ["Rate", `1 ${q.sendCurrency} = ${q.rate} ${q.receiveCurrency}`],
-            ["They receive", formatAmount(q.receiveAmountMinor, q.receiveCurrency)],
+            [t("common.to"), phone],
+            [t("send.youSend"), money(q.sendAmountMinor, q.sendCurrency)],
+            [t("common.fee"), money(q.feeMinor, q.sendCurrency)],
+            [t("send.rate"), t("send.rateLine", { from: q.sendCurrency, rate: String(q.rate), to: q.receiveCurrency })],
+            [t("send.purpose"), t(`purpose.${purpose}`)],
+            [t("send.lockedUntil"), date(q.expiresAt, true)],
+            [t("send.theyReceive"), money(q.receiveAmountMinor, q.receiveCurrency)],
+            [t("common.total"), money(q.totalDebitMinor, q.sendCurrency)],
           ],
           currency: q.sendCurrency,
           amountMinor,
@@ -122,93 +120,105 @@ export function Send({ session }: { session: Session }) {
     }
   };
 
+  const needsTier = (mode === "abroad" || mode === "bank") && user.kycTier === "TIER_0";
+  const selectedBank = banks.find((b) => b.id === bankId);
+
   return (
-    <Card>
-      <Title>Send money</Title>
-      <ChipSelect
-        label="Send to"
-        value={mode}
-        onChange={(m) => {
-          setMode(m);
-          setPhone(m === "abroad" ? COUNTRY_BY_CODE[dest].callingCode : country.callingCode);
-        }}
-        options={[
-          { id: "benki", label: "Benki user" },
-          { id: "momo", label: "Mobile money" },
-          { id: "bank", label: "Bank" },
-          { id: "abroad", label: "Abroad" },
-        ]}
-      />
-      {(mode === "abroad" || mode === "bank") && user.kycTier === "TIER_0" ? (
-        <Banner tone="warn">Verify your identity (Tier 1) in Profile to send money {mode === "bank" ? "to bank accounts" : "abroad"}.</Banner>
-      ) : mode === "bank" ? (
-        <>
-          <ChipSelect
-            label="Bank"
-            value={bankId}
-            onChange={(id) => {
-              setBankId(id);
-              setResolved(null);
-            }}
-            options={banks.map((b) => ({ id: b.id, label: b.name }))}
-          />
-          <Field
-            label={banks.find((b) => b.id === bankId)?.accountNumberHint ?? "Account number"}
-            value={bankAccount}
-            autoCapitalize="characters"
-            onChangeText={(v) => {
-              setBankAccount(v.toUpperCase());
-              setResolved(null);
-            }}
-          />
-          {resolved ? (
-            <>
-              <Banner tone="success">Account holder: {resolved.accountName}. Make sure this is who you mean to pay.</Banner>
-              <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
-              <PrimaryButton title="Review" disabled={!amountMinor} onPress={review} />
-            </>
-          ) : (
-            <SecondaryButton
-              title={busy ? "Checking…" : "Look up account"}
-              disabled={busy || bankAccount.trim().length < 6}
-              onPress={() => run(async () => setResolved(await api.nameEnquiry(bankId, bankAccount)))}
+    <>
+      <ScreenHeader title={t("send.title")} />
+      <Card>
+        <Segmented
+          value={mode}
+          onChange={(m) => {
+            setMode(m);
+            setError(null);
+            setPhone(m === "abroad" ? COUNTRY_BY_CODE[dest].callingCode : country.callingCode);
+          }}
+          options={[
+            { id: "benki", label: t("send.benki") },
+            { id: "momo", label: t("send.momo") },
+            { id: "bank", label: t("send.bank") },
+            { id: "abroad", label: t("send.abroad") },
+          ]}
+        />
+        {needsTier ? (
+          <>
+            <Banner tone="warn">{t(mode === "bank" ? "send.tierBank" : "send.tierAbroad")}</Banner>
+            <LinkButton title={t("home.verifyNow")} onPress={() => session.go("profile")} />
+          </>
+        ) : mode === "bank" ? (
+          <>
+            <ChipSelect
+              label={t("send.bankName")}
+              value={bankId}
+              onChange={(id) => {
+                setBankId(id);
+                setResolved(null);
+              }}
+              options={banks.map((b) => ({ id: b.id, label: b.name }))}
             />
-          )}
-          {error && <Banner tone="error">{error}</Banner>}
-        </>
-      ) : (
-        <>
-          {mode === "momo" && (
-            <ChipSelect label="Provider" value={providerId} onChange={setProviderId} options={country.mobileMoneyProviders.map((p) => ({ id: p.id, label: p.label }))} />
-          )}
-          {mode === "abroad" && (
-            <>
-              <ChipSelect
-                label="Destination"
-                value={dest}
-                onChange={(c) => {
-                  setDest(c);
-                  setPhone(COUNTRY_BY_CODE[c].callingCode);
-                }}
-                options={others.map((c) => ({ id: c.code, label: `${c.name} (${c.currency})` }))}
+            <Field
+              label={selectedBank ? hintLabel(selectedBank.accountNumberHint, t) : t("hint.account")}
+              value={bankAccount}
+              autoCapitalize="characters"
+              onChangeText={(v) => {
+                setBankAccount(v.toUpperCase());
+                setResolved(null);
+              }}
+            />
+            {resolved ? (
+              <>
+                <Banner tone="success">
+                  {t("send.holder", { name: resolved.accountName })} {t("send.checkPayee")}
+                </Banner>
+                <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
+                <PrimaryButton title={t("common.review")} disabled={!amountMinor} onPress={review} />
+              </>
+            ) : (
+              <SecondaryButton
+                title={busy ? t("common.checking") : t("send.lookUp")}
+                disabled={busy || bankAccount.trim().length < 6}
+                onPress={() => run(async () => setResolved(await api.nameEnquiry(bankId, bankAccount)))}
               />
-              <ChipSelect label="Purpose" value={purpose} onChange={setPurpose} options={PURPOSE_CODES.map((p) => ({ id: p.id, label: p.label }))} />
-            </>
-          )}
-          <Field label="Recipient's mobile number" value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
-          <AmountField currency={wallet.currency} value={amount} onChange={setAmount} label={mode === "abroad" ? "You send" : "Amount"} />
-          {error && <Banner tone="error">{error}</Banner>}
-          <PrimaryButton title={mode === "abroad" ? "Get quote" : "Review"} disabled={busy || !amountMinor || phone.length < 9} onPress={review} />
-        </>
-      )}
-    </Card>
+            )}
+          </>
+        ) : (
+          <>
+            {mode === "momo" && (
+              <ChipSelect label={t("send.provider")} value={providerId} onChange={setProviderId} options={country.mobileMoneyProviders.map((p) => ({ id: p.id, label: p.label }))} />
+            )}
+            {mode === "abroad" && (
+              <>
+                <ChipSelect
+                  label={t("send.destination")}
+                  value={dest}
+                  onChange={(c) => {
+                    setDest(c);
+                    setPhone(COUNTRY_BY_CODE[c].callingCode);
+                  }}
+                  options={others.map((c) => ({ id: c.code, label: `${c.flag} ${countryName(c.code)}` }))}
+                />
+                <ChipSelect label={t("send.purpose")} value={purpose} onChange={setPurpose} options={PURPOSE_CODES.map((p) => ({ id: p.id, label: t(`purpose.${p.id}`) }))} />
+              </>
+            )}
+            <Field label={t("send.recipientPhone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
+            <AmountField currency={wallet.currency} value={amount} onChange={setAmount} label={mode === "abroad" ? t("send.youSend") : undefined} />
+            {mode === "benki" && <Field label={t("common.noteOptional")} value={note} maxLength={140} onChangeText={setNote} />}
+            <PrimaryButton title={mode === "abroad" ? t("send.getQuote") : t("common.review")} disabled={busy || !amountMinor || phone.length < 9} onPress={review} />
+          </>
+        )}
+        {error && <Banner tone="error">{error}</Banner>}
+      </Card>
+    </>
   );
 }
 
+type PayMode = "bills" | "merchant" | "airtime";
+
 export function Pay({ session }: { session: Session }) {
+  const { t, money } = useI18n();
   const { api, country, wallet, user } = session;
-  type Mode = "bills" | "merchant" | "airtime";
-  const [mode, setMode] = useState<Mode>("bills");
+  const [mode, setMode] = useState<PayMode>(session.preset === "airtime" || session.preset === "merchant" ? session.preset : "bills");
   const [amount, setAmount] = useState("");
   const [billerId, setBillerId] = useState(country.billers[0].id);
   const [accountNumber, setAccountNumber] = useState("");
@@ -221,14 +231,18 @@ export function Pay({ session }: { session: Session }) {
 
   const amountMinor = parseMajorToMinor(amount, wallet.currency);
   const biller = country.billers.find((b) => b.id === billerId)!;
+  const billerLabel = (b: typeof biller) => `${t(`biller.${b.category}` as MessageKey)} — ${b.name}`;
   const review = () => {
-    if (!amountMinor) return setError("Enter a valid amount");
-    const amountRow: [string, string] = ["Amount", formatAmount(amountMinor, wallet.currency)];
+    if (!amountMinor) return setError(t("common.invalidAmount"));
+    setError(null);
+    const amountRow: [string, string] = [t("common.amount"), money(amountMinor, wallet.currency)];
     if (mode === "bills") {
-      if (!new RegExp(biller.accountNumberPattern).test(accountNumber.trim().toUpperCase())) return setError(`Enter a valid ${biller.accountNumberHint.toLowerCase()}`);
+      if (!new RegExp(biller.accountNumberPattern).test(accountNumber.trim().toUpperCase())) {
+        return setError(t("err.invalidAccountNumber", { hint: hintLabel(biller.accountNumberHint, t) }));
+      }
       setIntent({
-        title: biller.name,
-        rows: [[biller.accountNumberHint, accountNumber], amountRow],
+        title: billerLabel(biller),
+        rows: [[hintLabel(biller.accountNumberHint, t), accountNumber], amountRow],
         currency: wallet.currency,
         amountMinor,
         feeType: "BILL_PAYMENT",
@@ -236,10 +250,10 @@ export function Pay({ session }: { session: Session }) {
         submit: (pin, idempotencyKey) => api.bill({ idempotencyKey, pin, billerId, accountNumber, amountMinor }),
       });
     } else if (mode === "merchant") {
-      const m = country.merchants.find((x) => x.code === merchantCode)!;
+      const merchant = country.merchants.find((m) => m.code === merchantCode);
       setIntent({
-        title: "Pay merchant",
-        rows: [["Merchant", m.name], amountRow],
+        title: t("pay.payMerchant"),
+        rows: [[t("pay.merchant"), merchant ? merchant.name : merchantCode], amountRow],
         currency: wallet.currency,
         amountMinor,
         feeType: "MERCHANT_PAYMENT",
@@ -247,9 +261,10 @@ export function Pay({ session }: { session: Session }) {
         submit: (pin, idempotencyKey) => api.merchant({ idempotencyKey, pin, merchantCode, amountMinor }),
       });
     } else {
+      const provider = country.mobileMoneyProviders.find((p) => p.id === providerId)!;
       setIntent({
-        title: "Buy airtime",
-        rows: [["Phone", airtimePhone], amountRow],
+        title: t("pay.buyAirtime"),
+        rows: [[t("pay.network"), provider.label], [t("common.phone"), airtimePhone], amountRow],
         currency: wallet.currency,
         amountMinor,
         feeType: "AIRTIME",
@@ -260,76 +275,111 @@ export function Pay({ session }: { session: Session }) {
   };
 
   return (
-    <Card>
-      <Title>Pay</Title>
-      <ChipSelect
-        label="Pay for"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { id: "bills", label: "Bills" },
-          { id: "merchant", label: "Merchant" },
-          { id: "airtime", label: "Airtime" },
-        ]}
-      />
-      {mode === "bills" && (
-        <>
-          <ChipSelect label="Biller" value={billerId} onChange={setBillerId} options={country.billers.map((b) => ({ id: b.id, label: b.name }))} />
-          <Field label={biller.accountNumberHint} value={accountNumber} onChangeText={setAccountNumber} keyboardType="number-pad" />
-        </>
-      )}
-      {mode === "merchant" && (
-        <ChipSelect label="Merchant" value={merchantCode} onChange={setMerchantCode} options={country.merchants.map((m) => ({ id: m.code, label: m.name }))} />
-      )}
-      {mode === "airtime" && (
-        <>
-          <ChipSelect label="Network" value={providerId} onChange={setProviderId} options={country.mobileMoneyProviders.map((p) => ({ id: p.id, label: p.label }))} />
-          <Field label="Phone number" value={airtimePhone} onChangeText={(v) => setAirtimePhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
-        </>
-      )}
-      <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
-      {error && <Banner tone="error">{error}</Banner>}
-      <PrimaryButton title="Review" disabled={!amountMinor} onPress={review} />
-    </Card>
+    <>
+      <ScreenHeader title={t("pay.title")} />
+      <Card>
+        <Segmented
+          value={mode}
+          onChange={(m) => {
+            setMode(m);
+            setError(null);
+          }}
+          options={[
+            { id: "bills", label: t("pay.bills"), icon: "file-text" },
+            { id: "merchant", label: t("pay.merchant"), icon: "shopping-bag" },
+            { id: "airtime", label: t("pay.airtime"), icon: "zap" },
+          ]}
+        />
+        {mode === "bills" && (
+          <>
+            <ChipSelect label={t("pay.biller")} value={billerId} onChange={setBillerId} options={country.billers.map((b) => ({ id: b.id, label: billerLabel(b) }))} />
+            <Field label={hintLabel(biller.accountNumberHint, t)} value={accountNumber} onChangeText={setAccountNumber} autoCapitalize="characters" />
+            {biller.issuesToken && <Muted>{t("pay.tokenHint")}</Muted>}
+          </>
+        )}
+        {mode === "merchant" && (
+          <>
+            <ChipSelect label={t("pay.nearby")} value={merchantCode} onChange={setMerchantCode} options={country.merchants.map((m) => ({ id: m.code, label: m.name }))} />
+            <Field label={t("pay.merchantCode")} value={merchantCode} onChangeText={(v) => setMerchantCode(v.toUpperCase())} autoCapitalize="characters" />
+          </>
+        )}
+        {mode === "airtime" && (
+          <>
+            <ChipSelect label={t("pay.network")} value={providerId} onChange={setProviderId} options={country.mobileMoneyProviders.map((p) => ({ id: p.id, label: p.label }))} />
+            <Field label={t("common.phone")} value={airtimePhone} onChangeText={(v) => setAirtimePhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
+          </>
+        )}
+        <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
+        {error && <Banner tone="error">{error}</Banner>}
+        <PrimaryButton title={t("common.review")} disabled={!amountMinor} onPress={review} />
+      </Card>
+    </>
   );
 }
 
 export function Cash({ session }: { session: Session }) {
+  const { t, money } = useI18n();
   const { api, country, wallet } = session;
   const [agentId, setAgentId] = useState(country.agents[0].id);
   const [amount, setAmount] = useState("");
   const { setIntent, screen } = useIntent(session, () => setAmount(""));
   if (screen) return screen;
-
   const amountMinor = parseMajorToMinor(amount, wallet.currency);
   const agent = country.agents.find((a) => a.id === agentId)!;
+
   const start = (direction: "in" | "out") => {
     if (!amountMinor) return;
     setIntent({
-      title: direction === "in" ? "Deposit cash" : "Withdraw cash",
+      title: direction === "in" ? t("cash.depositTitle") : t("cash.withdrawTitle"),
       rows: [
-        ["Agent", `${agent.name}, ${agent.location}`],
-        ["Amount", formatAmount(amountMinor, wallet.currency)],
+        [t("cash.agent"), `${agent.name}, ${agent.location}`],
+        [t("common.amount"), money(amountMinor, wallet.currency)],
       ],
       currency: wallet.currency,
       amountMinor,
       feeType: direction === "in" ? "CASH_IN" : "CASH_OUT",
       requirePin: direction === "out",
       submit: (pin, idempotencyKey) =>
-        direction === "in"
-          ? api.cashIn(wallet.walletId, { idempotencyKey, agentId, amountMinor })
-          : api.cashOut(wallet.walletId, { idempotencyKey, pin, agentId, amountMinor }),
+        direction === "in" ? api.cashIn(wallet.walletId, { idempotencyKey, agentId, amountMinor }) : api.cashOut(wallet.walletId, { idempotencyKey, pin, agentId, amountMinor }),
     });
   };
 
   return (
-    <Card>
-      <Title>Cash in / cash out</Title>
-      <Muted>Visit a Benki agent. Deposits are free; withdrawals cost 0.5%.</Muted>
-      <ChipSelect label="Agent" value={agentId} onChange={setAgentId} options={country.agents.map((a) => ({ id: a.id, label: `${a.name} — ${a.location}` }))} />
-      <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
-      <PrimaryButton title="Deposit" disabled={!amountMinor} onPress={() => start("in")} />
-      <SecondaryButton title="Withdraw" disabled={!amountMinor} onPress={() => start("out")} />
-    </Card>
+    <>
+      <ScreenHeader title={t("cash.title")} subtitle={t("cash.intro")} />
+      <Card>
+        <Text style={{ fontWeight: "700", color: colors.text2, fontSize: 13 }}>{t("cash.agent")}</Text>
+        {country.agents.map((a) => {
+          const active = a.id === agentId;
+          return (
+            <Pressable
+              key={a.id}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              onPress={() => setAgentId(a.id)}
+              style={{
+                flexDirection: "row",
+                gap: 12,
+                alignItems: "center",
+                padding: 12,
+                borderRadius: 14,
+                borderWidth: 1.5,
+                borderColor: active ? colors.primary : colors.border,
+                backgroundColor: active ? colors.primarySoft : colors.surface2,
+              }}
+            >
+              <Icon name="map-pin" size={18} color={active ? colors.primary : colors.subtext} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: "700", color: colors.text }}>{a.name}</Text>
+                <Muted>{a.location}</Muted>
+              </View>
+            </Pressable>
+          );
+        })}
+        <AmountField currency={wallet.currency} value={amount} onChange={setAmount} />
+        <PrimaryButton title={t("cash.deposit")} disabled={!amountMinor} onPress={() => start("in")} />
+        <SecondaryButton title={t("cash.withdraw")} disabled={!amountMinor} onPress={() => start("out")} />
+      </Card>
+    </>
   );
 }
