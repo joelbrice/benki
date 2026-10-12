@@ -2,6 +2,7 @@ import {
   convertMinor,
   displayRate,
   FX_MARGIN_BPS,
+  pocketsAllowed,
   MIN_TIER_FOR_SERVICE,
   POCKET_CURRENCIES,
   tierAtLeast,
@@ -47,6 +48,7 @@ function pocketFor(ctx: AppContext, userId: string, currency: string): PocketRow
 
 function assertEligible(user: UserRow) {
   assertActive(user);
+  if (!pocketsAllowed(user.country_code)) throw forbidden(msg("err.pocketZone"));
   if (!tierAtLeast(user.kyc_tier, MIN_TIER_FOR_SERVICE.POCKETS)) {
     throw forbidden(msg("err.pocketTier"));
   }

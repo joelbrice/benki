@@ -42,6 +42,15 @@ export const TIER_LIMITS: Record<string, Record<KycTier, TierLimits>> = {
   },
 };
 
+// CEMAC (XAF) limits mirror WAEMU's: same peg, comparable incomes.
+const CFA_LIMITS = TIER_LIMITS.SN;
+for (const code of ["CM", "CF", "TD", "CG", "GQ", "GA"]) TIER_LIMITS[code] = CFA_LIMITS;
+TIER_LIMITS.CD = {
+  TIER_0: { perTransactionMinor: 500_000, dailyMinor: 1_400_000, monthlyMinor: 5_600_000, maxBalanceMinor: 2_800_000 },
+  TIER_1: { perTransactionMinor: 2_800_000, dailyMinor: 5_600_000, monthlyMinor: 28_000_000, maxBalanceMinor: 11_200_000 },
+  TIER_2: { perTransactionMinor: 28_000_000, dailyMinor: 56_000_000, monthlyMinor: 280_000_000, maxBalanceMinor: 112_000_000 },
+};
+
 export function tierLimits(countryCode: string, tier: KycTier): TierLimits {
   const country = TIER_LIMITS[countryCode];
   if (!country) throw new Error(`No limits configured for ${countryCode}`);

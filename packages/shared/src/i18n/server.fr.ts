@@ -105,6 +105,8 @@ export const serverFr: Record<keyof typeof serverEn, string> = {
   "err.requestExpired": "Cette demande a expiré.",
   "err.requestAnswered": "Cette demande a déjà reçu une réponse.",
   "err.requestInFlight": "Vous avez déjà payé cette demande. Le paiement est en cours de traitement.",
+  "err.cemacOutbound": "Les transferts hors de la zone CEMAC exigent une vérification complète (niveau 2), conformément à la réglementation des changes de la BEAC. Passez au niveau 2 dans Profil.",
+  "err.pocketZone": "La détention de dollars ou d'euros n'est pas disponible dans les pays de la CEMAC, conformément à la réglementation des changes de la BEAC.",
 
   "pay.completed": "{type} : {amount} effectué.",
   "pay.sending": "Envoi de {amount} à {name}. Nous confirmerons la livraison sous peu.",
@@ -215,4 +217,11 @@ export const serverFr: Record<keyof typeof serverEn, string> = {
   "country.NG": "Nigeria",
   "country.TZ": "Tanzanie",
   "country.SN": "Sénégal",
+  "country.CM": "Cameroun",
+  "country.CF": "République centrafricaine",
+  "country.TD": "Tchad",
+  "country.CG": "République du Congo",
+  "country.GQ": "Guinée équatoriale",
+  "country.GA": "Gabon",
+  "country.CD": "RD Congo",
 };

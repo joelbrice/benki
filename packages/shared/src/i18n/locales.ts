@@ -23,6 +23,13 @@ export const DEFAULT_LOCALE_BY_COUNTRY: Record<string, Locale> = {
   NG: "en",
   TZ: "sw",
   SN: "fr",
+  CM: "fr",
+  CF: "fr",
+  TD: "fr",
+  CG: "fr",
+  GQ: "fr",
+  GA: "fr",
+  CD: "fr",
 };
 
 /** Languages offered first in each market (all remain available everywhere). */
@@ -32,6 +39,14 @@ export const LANGUAGES_BY_COUNTRY: Record<string, Locale[]> = {
   NG: ["en", "ha", "yo"],
   TZ: ["sw", "en"],
   SN: ["fr", "wo", "en"],
+  // Cameroon is officially bilingual (French and English).
+  CM: ["fr", "en"],
+  CF: ["fr"],
+  TD: ["fr"],
+  CG: ["fr"],
+  GQ: ["fr"],
+  GA: ["fr"],
+  CD: ["fr", "sw"],
 };
 
 /** Picks a supported locale from a BCP-47 tag or Accept-Language header. */

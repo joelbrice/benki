@@ -1460,3 +1460,6 @@ tr.current td {
     transition: none !important;
   }
 }
+.full-row {
+  grid-column: 1 / -1;
+}

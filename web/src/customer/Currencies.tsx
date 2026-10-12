@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FX_MARGIN_BPS, parseMajorToMinor, POCKET_CURRENCIES, type CurrencyPocket } from "@benki/shared";
+import { FX_MARGIN_BPS, parseMajorToMinor, POCKET_CURRENCIES, pocketsAllowed, type CurrencyPocket } from "@benki/shared";
 import { useI18n } from "../i18n";
 import { AmountField, Banner, PageHeader, Segmented, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
@@ -35,6 +35,15 @@ export function Currencies({ session }: { session: Session }) {
         }}
         onCancel={() => setIntent(null)}
       />
+    );
+  }
+
+  if (!pocketsAllowed(user.countryCode)) {
+    return (
+      <div className="stack">
+        <PageHeader title={t("fx.title")} />
+        <Banner tone="info">{t("err.pocketZone")}</Banner>
+      </div>
     );
   }
 

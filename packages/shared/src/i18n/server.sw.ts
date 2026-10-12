@@ -105,6 +105,8 @@ export const serverSw: Record<keyof typeof serverEn, string> = {
   "err.requestExpired": "Ombi hili limekwisha muda.",
   "err.requestAnswered": "Ombi hili tayari limejibiwa.",
   "err.requestInFlight": "Tayari umelipa ombi hili. Linashughulikiwa.",
+  "err.cemacOutbound": "Uhamisho nje ya ukanda wa CEMAC unahitaji uthibitisho kamili (Kiwango cha 2) chini ya kanuni za fedha za kigeni za BEAC. Pandisha kwenye Wasifu.",
+  "err.pocketZone": "Kuweka dola au yuro hakupatikani katika nchi za CEMAC chini ya kanuni za fedha za kigeni za BEAC.",
 
   "pay.completed": "{type}: {amount} imekamilika.",
   "pay.sending": "Inatuma {amount} kwa {name}. Tutathibitisha punde itakapofika.",
@@ -215,4 +217,11 @@ export const serverSw: Record<keyof typeof serverEn, string> = {
   "country.NG": "Nigeria",
   "country.TZ": "Tanzania",
   "country.SN": "Senegali",
+  "country.CM": "Kamerun",
+  "country.CF": "Jamhuri ya Afrika ya Kati",
+  "country.TD": "Chadi",
+  "country.CG": "Jamhuri ya Kongo",
+  "country.GQ": "Guinea ya Ikweta",
+  "country.GA": "Gabon",
+  "country.CD": "Kongo (DRC)",
 };

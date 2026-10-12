@@ -27,7 +27,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
             <View style={styles.pointIcon}>
               <Icon name={(["arrow-up-right", "globe", "shield"] as const)[i]} size={14} color="#fff" />
             </View>
-            <Text style={styles.pointText}>{t(k)}</Text>
+            <Text style={styles.pointText}>{t(k, { count: AFRICAN_COUNTRIES.length })}</Text>
           </View>
         ))}
         <Text style={styles.flags}>{AFRICAN_COUNTRIES.map((c) => c.flag).join("  ")}</Text>

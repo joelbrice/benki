@@ -1,7 +1,7 @@
 // Currencies with no minor subdivision in everyday use. Amounts everywhere in
 // the platform are integer minor units; these helpers are the only place that
 // converts to and from human-readable major units.
-const ZERO_DECIMAL_CURRENCIES = new Set(["XOF", "XAF", "UGX", "RWF"]);
+const ZERO_DECIMAL_CURRENCIES = new Set(["XOF", "XAF", "UGX", "RWF", "CDF"]);
 
 export function minorUnitsPerMajor(currency: string): number {
   return ZERO_DECIMAL_CURRENCIES.has(currency) ? 1 : 100;

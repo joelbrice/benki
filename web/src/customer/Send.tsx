@@ -2,9 +2,11 @@ import { useState } from "react";
 import {
   AFRICAN_COUNTRIES,
   banksFor,
+  corridorPolicy,
   COUNTRY_BY_CODE,
   parseMajorToMinor,
   PURPOSE_CODES,
+  tierAtLeast,
   type MessageKey,
   type NameEnquiryResponse,
   type PurposeCode,
@@ -131,6 +133,8 @@ export function Send({ session }: { session: Session }) {
     setPhone(m === "abroad" ? COUNTRY_BY_CODE[destCountry].callingCode : country.callingCode);
   };
   const needsTier = (mode === "abroad" || mode === "bank") && user.kycTier === "TIER_0";
+  const corridor = corridorPolicy(country.code, destCountry);
+  const corridorBlocked = mode === "abroad" && !needsTier && !tierAtLeast(user.kycTier, corridor.minTier);
   const selectedBank = banks.find((b) => b.id === bankId);
 
   return (
@@ -239,6 +243,7 @@ export function Send({ session }: { session: Session }) {
                     ))}
                   </select>
                 </label>
+                {corridor.atPar && <p className="muted small full-row">{t("send.atPar")}</p>}
                 <label htmlFor="purpose">
                   {t("send.purpose")}
                   <select id="purpose" value={purpose} onChange={(e) => setPurpose(e.target.value as PurposeCode)}>
@@ -262,7 +267,15 @@ export function Send({ session }: { session: Session }) {
                 <input id="send-note" maxLength={140} value={note} onChange={(e) => setNote(e.target.value)} />
               </label>
             )}
-            <button className="block" disabled={busy || !amountMinor || phone.length < 9} onClick={review}>
+            {corridorBlocked && (
+              <Banner tone="warn">
+                {t("err.cemacOutbound")}{" "}
+                <button className="link" onClick={() => session.go("profile")}>
+                  {t("home.verifyNow")}
+                </button>
+              </Banner>
+            )}
+            <button className="block" disabled={busy || !amountMinor || phone.length < 9 || corridorBlocked} onClick={review}>
               {mode === "abroad" ? t("send.getQuote") : t("common.review")}
             </button>
           </>

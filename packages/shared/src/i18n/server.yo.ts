@@ -105,6 +105,8 @@ export const serverYo: Record<keyof typeof serverEn, string> = {
   "err.requestExpired": "Ìbéèrè yìí ti parí.",
   "err.requestAnswered": "A ti dáhùn ìbéèrè yìí tẹ́lẹ̀.",
   "err.requestInFlight": "O ti san ìbéèrè yìí. À ń ṣiṣẹ́ lórí rẹ̀.",
+  "err.cemacOutbound": "Ìfiránṣẹ́ sí ìta agbègbè CEMAC nílò ìdánilójú kíkún (Ìpele 2) gẹ́gẹ́ bí òfin pàṣípààrọ̀ BEAC. Gòkè nínú Àkọsílẹ̀ mi.",
+  "err.pocketZone": "Níní dọ́là tàbí yúrò kò sí ní àwọn orílẹ̀-èdè CEMAC gẹ́gẹ́ bí òfin pàṣípààrọ̀ BEAC.",
 
   "pay.completed": "{type}: {amount} ti parí.",
   "pay.sending": "À ń fi {amount} ránṣẹ́ sí {name}. A ó fìdí rẹ̀ múlẹ̀ láìpẹ́.",
@@ -215,4 +217,11 @@ export const serverYo: Record<keyof typeof serverEn, string> = {
   "country.NG": "Nàìjíríà",
   "country.TZ": "Tànsáníà",
   "country.SN": "Sẹ̀nẹ̀gà",
+  "country.CM": "Kamerúúnù",
+  "country.CF": "Àpapọ̀ Olómìnira Áfíríkà Àárín",
+  "country.TD": "Ṣáàdì",
+  "country.CG": "Olómìnira Kóńgò",
+  "country.GQ": "Gíní Alágedeméjì",
+  "country.GA": "Gàbọ̀nù",
+  "country.CD": "Kóńgò (DRC)",
 };

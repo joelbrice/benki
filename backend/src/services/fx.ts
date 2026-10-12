@@ -1,5 +1,6 @@
 import {
   convertMinor,
+  corridorPolicy,
   COUNTRY_BY_CODE,
   customerFeeMinor,
   displayRate,
@@ -29,6 +30,8 @@ export function createFxQuote(ctx: AppContext, user: UserRow, destinationCountry
   const destination = COUNTRY_BY_CODE[destinationCountryCode];
   if (!destination) throw badRequest(msg("err.corridorUnavailable"));
   if (destination.code === user.country_code) throw badRequest(msg("err.useLocal"));
+  const policy = corridorPolicy(user.country_code, destination.code);
+  if (!tierAtLeast(user.kyc_tier, policy.minTier)) throw forbidden(msg("err.cemacOutbound"));
 
   const sendCurrency = currencyOf(user);
   const receiveCurrency = destination.currency;
@@ -38,11 +41,13 @@ export function createFxQuote(ctx: AppContext, user: UserRow, destinationCountry
 
   // Multiply everything out before the single division so the result isn't
   // pushed below an integer boundary by a rounded intermediate rate.
-  const receiveAmountMinor = convertMinor(sendAmountMinor, sendCurrency, receiveCurrency, FX_MARGIN_BPS)!;
+  // Inside a currency union the money never changes currency: no margin, rate 1.
+  const marginBps = policy.atPar ? 0 : FX_MARGIN_BPS;
+  const receiveAmountMinor = convertMinor(sendAmountMinor, sendCurrency, receiveCurrency, marginBps)!;
   if (receiveAmountMinor <= 0) throw badRequest(msg("err.amountTooSmall"));
-  const rate = displayRate(sendCurrency, receiveCurrency);
+  const rate = displayRate(sendCurrency, receiveCurrency, marginBps);
 
-  const feeMinor = customerFeeMinor("CROSS_BORDER", sendAmountMinor);
+  const feeMinor = customerFeeMinor(policy.atPar ? "REGIONAL_TRANSFER" : "CROSS_BORDER", sendAmountMinor);
   const quoteId = newId("FXQ");
   const now = ctx.now();
   const expiresAt = new Date(now.getTime() + ctx.config.quoteTtlMs).toISOString();

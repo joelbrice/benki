@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { FX_MARGIN_BPS, parseMajorToMinor, POCKET_CURRENCIES, type CurrencyPocket } from "@benki/shared";
+import { FX_MARGIN_BPS, parseMajorToMinor, POCKET_CURRENCIES, pocketsAllowed, type CurrencyPocket } from "@benki/shared";
 import { AmountField, Banner, Card, Muted, PrimaryButton, ScreenHeader, SecondaryButton, Segmented, useAction } from "../components/ui";
 import { useI18n } from "../i18n";
 import type { Session } from "../session";
@@ -24,6 +24,15 @@ export function Currencies({ session }: { session: Session }) {
     void load();
   });
   if (screen) return screen;
+
+  if (!pocketsAllowed(user.countryCode)) {
+    return (
+      <>
+        <ScreenHeader title={t("fx.title")} />
+        <Banner tone="info">{t("err.pocketZone")}</Banner>
+      </>
+    );
+  }
 
   if (user.kycTier === "TIER_0") {
     return (

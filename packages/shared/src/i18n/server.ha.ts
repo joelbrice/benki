@@ -105,6 +105,8 @@ export const serverHa: Record<keyof typeof serverEn, string> = {
   "err.requestExpired": "Wannan buƙatar ta ƙare.",
   "err.requestAnswered": "An riga an amsa wannan buƙatar.",
   "err.requestInFlight": "Ka riga ka biya wannan buƙatar. Ana aiki a kanta.",
+  "err.cemacOutbound": "Tura kuɗi zuwa wajen yankin CEMAC yana buƙatar cikakken tabbatarwa (Mataki na 2) bisa dokokin canjin kuɗi na BEAC. Haura a Bayanina.",
+  "err.pocketZone": "Ba a samun ajiyar dala ko yuro a ƙasashen CEMAC bisa dokokin canjin kuɗi na BEAC.",
 
   "pay.completed": "{type}: an kammala {amount}.",
   "pay.sending": "Ana tura {amount} zuwa {name}. Za mu tabbatar da isarsa nan ba da daɗewa ba.",
@@ -215,4 +217,11 @@ export const serverHa: Record<keyof typeof serverEn, string> = {
   "country.NG": "Najeriya",
   "country.TZ": "Tanzaniya",
   "country.SN": "Senegal",
+  "country.CM": "Kamaru",
+  "country.CF": "Jamhuriyar Afirka ta Tsakiya",
+  "country.TD": "Cadi",
+  "country.CG": "Jamhuriyar Kongo",
+  "country.GQ": "Gini Ikwatoriya",
+  "country.GA": "Gabon",
+  "country.CD": "Kongo (DRC)",
 };

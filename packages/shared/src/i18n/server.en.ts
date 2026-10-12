@@ -111,6 +111,8 @@ export const serverEn = {
   "err.requestExpired": "This request has expired.",
   "err.requestAnswered": "This request has already been answered.",
   "err.requestInFlight": "You've already paid this request. It's being processed.",
+  "err.cemacOutbound": "Transfers out of the CEMAC zone need full verification (Tier 2) under BEAC exchange rules. Upgrade in Profile.",
+  "err.pocketZone": "Holding dollars or euros isn't available in CEMAC countries under BEAC exchange rules.",
 
   // --- Payment confirmations ---------------------------------------------------------
   "pay.completed": "{type}: {amount} completed.",
@@ -226,4 +228,11 @@ export const serverEn = {
   "country.NG": "Nigeria",
   "country.TZ": "Tanzania",
   "country.SN": "Senegal",
+  "country.CM": "Cameroon",
+  "country.CF": "Central African Republic",
+  "country.TD": "Chad",
+  "country.CG": "Republic of the Congo",
+  "country.GQ": "Equatorial Guinea",
+  "country.GA": "Gabon",
+  "country.CD": "DR Congo",
 } as const;

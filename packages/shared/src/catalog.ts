@@ -31,6 +31,9 @@ export interface Merchant {
   category: string;
 }
 
+/** CEMAC: Central African CFA franc (XAF, BEAC). WAEMU: West African CFA franc (XOF, BCEAO). */
+export type MonetaryZone = "CEMAC" | "WAEMU";
+
 export interface Country {
   code: string;
   name: string;
@@ -38,6 +41,8 @@ export interface Country {
   callingCode: string;
   /** Emoji flag for pickers. */
   flag: string;
+  /** Monetary union: members share a currency and transfer between themselves at par. */
+  zone?: MonetaryZone;
   mobileMoneyProviders: MobileMoneyProvider[];
   agents: Agent[];
   billers: Biller[];
@@ -143,6 +148,7 @@ export const AFRICAN_COUNTRIES: Country[] = [
     name: "Senegal",
     currency: "XOF",
     callingCode: "+221",
+    zone: "WAEMU",
     mobileMoneyProviders: [
       { id: "ORANGE_MONEY", label: "Orange Money" },
       { id: "WAVE", label: "Wave" },
@@ -158,6 +164,179 @@ export const AFRICAN_COUNTRIES: Country[] = [
     merchants: [
       { code: "SN900100", name: "Marché Sandaga Tissus", category: "Textiles" },
       { code: "SN900200", name: "Dibiterie Teranga", category: "Food" },
+    ],
+  },
+  // --- Central Africa: the six CEMAC states share the CFA franc (XAF), issued by
+  // the BEAC and supervised by COBAC; the DRC is the region's largest market.
+  {
+    code: "CM",
+    flag: "🇨🇲",
+    name: "Cameroon",
+    currency: "XAF",
+    callingCode: "+237",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "MTN_MOMO", label: "MTN Mobile Money" },
+      { id: "ORANGE_MONEY", label: "Orange Money" },
+    ],
+    agents: [
+      { id: "CM-01", name: "Boutique Mama Ngono", location: "Marché Mokolo, Yaoundé" },
+      { id: "CM-02", name: "Ets. Tchinda & Fils", location: "Akwa, Douala" },
+      { id: "CM-03", name: "Point Cash Bamenda", location: "Commercial Avenue, Bamenda" },
+    ],
+    billers: [
+      { id: "CM-POWER", name: "Prepaid electricity (ENEO)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "CM-WATER", name: "Water utility (CAMWATER)", category: "WATER", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Account number" },
+      { id: "CM-TV", name: "Pay TV subscription", category: "TV", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Smartcard number" },
+    ],
+    merchants: [
+      { code: "CM110100", name: "Marché Central Tissus", category: "Textiles" },
+      { code: "CM110200", name: "Chez Mami Ndolé", category: "Food" },
+    ],
+  },
+  {
+    code: "CF",
+    flag: "🇨🇫",
+    name: "Central African Republic",
+    currency: "XAF",
+    callingCode: "+236",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "ORANGE_MONEY", label: "Orange Money" },
+      { id: "MOOV_MONEY", label: "Moov Money" },
+    ],
+    agents: [
+      { id: "CF-01", name: "Kiosque PK5", location: "PK5, Bangui" },
+      { id: "CF-02", name: "Boutique Yakité", location: "Berbérati" },
+    ],
+    billers: [
+      { id: "CF-POWER", name: "Prepaid electricity (ENERCA)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "CF-SCHOOL", name: "School fees collection", category: "SCHOOL_FEES", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Student reference" },
+    ],
+    merchants: [
+      { code: "CF120100", name: "Marché Combattant Vivres", category: "Groceries" },
+      { code: "CF120200", name: "Pharmacie de l'Oubangui", category: "Pharmacy" },
+    ],
+  },
+  {
+    code: "TD",
+    flag: "🇹🇩",
+    name: "Chad",
+    currency: "XAF",
+    callingCode: "+235",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "AIRTEL_MONEY", label: "Airtel Money" },
+      { id: "MOOV_MONEY", label: "Moov Money" },
+    ],
+    agents: [
+      { id: "TD-01", name: "Boutique Al-Amal", location: "Grand Marché, N'Djamena" },
+      { id: "TD-02", name: "Kiosque Moundou Centre", location: "Moundou" },
+    ],
+    billers: [
+      { id: "TD-POWER", name: "Prepaid electricity (SNE)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "TD-WATER", name: "Water utility (STE)", category: "WATER", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Account number" },
+    ],
+    merchants: [
+      { code: "TD130100", name: "Marché à Mil Céréales", category: "Groceries" },
+      { code: "TD130200", name: "Boucherie du Chari", category: "Food" },
+    ],
+  },
+  {
+    code: "CG",
+    flag: "🇨🇬",
+    name: "Republic of the Congo",
+    currency: "XAF",
+    callingCode: "+242",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "MTN_MOMO", label: "MTN Mobile Money" },
+      { id: "AIRTEL_MONEY", label: "Airtel Money" },
+    ],
+    agents: [
+      { id: "CG-01", name: "Ets. Mabiala", location: "Marché Total, Brazzaville" },
+      { id: "CG-02", name: "Point Cash Tié-Tié", location: "Pointe-Noire" },
+    ],
+    billers: [
+      { id: "CG-POWER", name: "Prepaid electricity (E²C)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "CG-WATER", name: "Water utility (LCDE)", category: "WATER", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Account number" },
+    ],
+    merchants: [
+      { code: "CG140100", name: "Saka-Saka de Poto-Poto", category: "Food" },
+      { code: "CG140200", name: "Couture La Sapeuse", category: "Clothing" },
+    ],
+  },
+  {
+    code: "GQ",
+    flag: "🇬🇶",
+    name: "Equatorial Guinea",
+    currency: "XAF",
+    callingCode: "+240",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "GETESA_MONEY", label: "GETESA Mobile Money" },
+      { id: "MUNI_DINERO", label: "Muni Dinero" },
+    ],
+    agents: [
+      { id: "GQ-01", name: "Tienda La Esperanza", location: "Malabo" },
+      { id: "GQ-02", name: "Kiosco Bata Centro", location: "Bata" },
+    ],
+    billers: [
+      { id: "GQ-POWER", name: "Prepaid electricity (SEGESA)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "GQ-TV", name: "Pay TV subscription", category: "TV", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Smartcard number" },
+    ],
+    merchants: [
+      { code: "GQ150100", name: "Mercado Central de Malabo", category: "Groceries" },
+      { code: "GQ150200", name: "Pescadería Bioko", category: "Food" },
+    ],
+  },
+  {
+    code: "GA",
+    flag: "🇬🇦",
+    name: "Gabon",
+    currency: "XAF",
+    callingCode: "+241",
+    zone: "CEMAC",
+    mobileMoneyProviders: [
+      { id: "AIRTEL_MONEY", label: "Airtel Money" },
+      { id: "MOOV_MONEY", label: "Moov Money" },
+    ],
+    agents: [
+      { id: "GA-01", name: "Boutique Mont-Bouët", location: "Mont-Bouët, Libreville" },
+      { id: "GA-02", name: "Kiosque Port-Gentil", location: "Port-Gentil" },
+    ],
+    billers: [
+      { id: "GA-POWER", name: "Prepaid electricity (SEEG)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "GA-WATER", name: "Water utility (SEEG)", category: "WATER", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Account number" },
+    ],
+    merchants: [
+      { code: "GA160100", name: "Marché de Nkembo", category: "Groceries" },
+      { code: "GA160200", name: "Atelier Okoumé", category: "Crafts" },
+    ],
+  },
+  {
+    code: "CD",
+    flag: "🇨🇩",
+    name: "DR Congo",
+    currency: "CDF",
+    callingCode: "+243",
+    mobileMoneyProviders: [
+      { id: "MPESA", label: "M-Pesa (Vodacom)" },
+      { id: "ORANGE_MONEY", label: "Orange Money" },
+      { id: "AIRTEL_MONEY", label: "Airtel Money" },
+    ],
+    agents: [
+      { id: "CD-01", name: "Ets. Mbuyi", location: "Marché Gambela, Kinshasa" },
+      { id: "CD-02", name: "Cabine Lubumbashi Centre", location: "Lubumbashi" },
+      { id: "CD-03", name: "Boutique Neema", location: "Goma" },
+    ],
+    billers: [
+      { id: "CD-POWER", name: "Prepaid electricity (SNEL)", category: "ELECTRICITY", issuesToken: true, accountNumberPattern: METER, accountNumberHint: "11-digit meter number" },
+      { id: "CD-SCHOOL", name: "School fees collection", category: "SCHOOL_FEES", issuesToken: false, accountNumberPattern: ACCOUNT, accountNumberHint: "Student reference" },
+    ],
+    merchants: [
+      { code: "CD170100", name: "Pagne Wax Matonge", category: "Textiles" },
+      { code: "CD170200", name: "Malewa ya Mama Kiese", category: "Food" },
     ],
   },
 ];
@@ -198,6 +377,9 @@ export const FX_UNITS_PER_USD: Record<string, number> = {
   NGN: 1550,
   TZS: 2600,
   XOF: 600,
+  // XAF and XOF are both pegged at 655.957 per euro, so they trade at par.
+  XAF: 600,
+  CDF: 2800,
   USD: 1,
   EUR: 0.92,
 };
@@ -214,7 +396,9 @@ export interface Bank {
 }
 
 // Illustrative bank rails per market (NIP in Nigeria, PesaLink in Kenya,
-// GhIPSS in Ghana, TISS/TIPS in Tanzania, GIM-UEMOA in Senegal).
+// GhIPSS in Ghana, TISS/TIPS in Tanzania, GIM-UEMOA in Senegal, SYSTAC/GIMAC in CEMAC).
+const RIB = "^[0-9A-Z]{23}$";
+
 export const BANKS: Record<string, Bank[]> = {
   KE: [
     { id: "KE-EQUITY", name: "Equity Bank", accountNumberPattern: "^[0-9]{10,13}$", accountNumberHint: "10–13 digit account number" },
@@ -235,6 +419,35 @@ export const BANKS: Record<string, Bank[]> = {
   SN: [
     { id: "SN-CBAO", name: "CBAO", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number (RIB)" },
     { id: "SN-ECOBANK", name: "Ecobank Sénégal", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number (RIB)" },
+  ],
+  // CEMAC banks clear through SYSTAC/SYGMA; account numbers are 23-character RIBs.
+  CM: [
+    { id: "CM-AFRILAND", name: "Afriland First Bank", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "CM-SGC", name: "Société Générale Cameroun", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  CF: [
+    { id: "CF-ECOBANK", name: "Ecobank Centrafrique", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "CF-BPMC", name: "Banque Populaire Maroco-Centrafricaine", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  TD: [
+    { id: "TD-ECOBANK", name: "Ecobank Tchad", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "TD-CBT", name: "Commercial Bank Tchad", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  CG: [
+    { id: "CG-BGFI", name: "BGFIBank Congo", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "CG-LCB", name: "LCB Bank", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  GQ: [
+    { id: "GQ-CCEI", name: "CCEI Bank GE", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "GQ-BGFI", name: "BGFIBank Guinea Ecuatorial", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  GA: [
+    { id: "GA-BGFI", name: "BGFIBank Gabon", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+    { id: "GA-ECOBANK", name: "Ecobank Gabon", accountNumberPattern: RIB, accountNumberHint: "Account number (RIB)" },
+  ],
+  CD: [
+    { id: "CD-RAWBANK", name: "Rawbank", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number" },
+    { id: "CD-EQUITYBCDC", name: "Equity BCDC", accountNumberPattern: "^[0-9A-Z]{10,24}$", accountNumberHint: "Account number" },
   ],
 };
 

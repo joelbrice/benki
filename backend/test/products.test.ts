@@ -308,3 +308,58 @@ describe("payment requests", () => {
     expect((await alice.call("post", `/v1/requests/${open.requestId}/cancel`)).body.request.status).toBe("CANCELLED");
   });
 });
+
+describe("Central Africa (CEMAC)", () => {
+  it("sends between CEMAC countries at par, with the regional fee and no exchange margin", async () => {
+    const h = harness();
+    const ngono = await h.customer("+237670000101", { country: "CM", fullName: "Ngono Mballa" });
+    const nzue = await h.customer("+24106000102", { country: "GA", fullName: "Nzue Obiang" });
+    await ngono.fund(300_000);
+
+    const quote = await ngono.call("post", "/v1/transfers/cross-border/quote", { destinationCountryCode: "GA", sendAmountMinor: 100_000 });
+    expect(quote.status).toBe(201);
+    expect(quote.body).toMatchObject({ sendCurrency: "XAF", receiveCurrency: "XAF", rate: 1, receiveAmountMinor: 100_000, feeMinor: 500 });
+    const sent = await ngono.call("post", "/v1/transfers/cross-border", {
+      idempotencyKey: h.key(),
+      pin: PIN,
+      quoteId: quote.body.quoteId,
+      destinationPhoneNumber: nzue.phone,
+      purposeCode: "FAMILY_SUPPORT",
+    });
+    expect(sent.status).toBe(201);
+    expect((await nzue.balance()).ledgerBalanceMinor).toBe(100_000);
+    expect((await ngono.balance()).ledgerBalanceMinor).toBe(199_500);
+    expect(trialBalance(h.ctx).balanced).toBe(true);
+  });
+
+  it("applies BEAC exchange control: Tier 2 to send outside CEMAC, no foreign-currency pockets", async () => {
+    const h = harness();
+    const awa = await h.customer("+237690000201", { country: "CM" });
+    await awa.fund(100_000);
+    const outbound = await awa.call("post", "/v1/transfers/cross-border/quote", { destinationCountryCode: "KE", sendAmountMinor: 50_000 });
+    expect(outbound.status).toBe(403);
+    expect(outbound.body.error.message).toMatch(/CEMAC/);
+    expect((await awa.call("post", "/v1/pockets", { currency: "USD" })).status).toBe(403);
+
+    const verified = await h.customer("+237690000202", { country: "CM", tier: 2 });
+    const ok = await verified.call("post", "/v1/transfers/cross-border/quote", { destinationCountryCode: "KE", sendAmountMinor: 50_000 });
+    expect(ok.status).toBe(201);
+    expect(ok.body.rate).toBeLessThan(129 / 600);
+  });
+
+  it("charges the FX margin between the two CFA francs, which are different currencies", async () => {
+    const h = harness();
+    const fatou = await h.customer("+221700000301", { country: "SN" });
+    const quote = await fatou.call("post", "/v1/transfers/cross-border/quote", { destinationCountryCode: "CM", sendAmountMinor: 100_000 });
+    expect(quote.body).toMatchObject({ receiveCurrency: "XAF", receiveAmountMinor: 99_000, rate: 0.99 });
+  });
+
+  it("serves every Central African market over USSD in its languages", async () => {
+    const h = harness();
+    const dial = (phoneNumber: string) => request(h.app).post("/v1/ussd/simulator").type("form").send({ sessionId: `sess-${phoneNumber.slice(1)}`, phoneNumber, text: "" });
+    expect((await dial("+237670000401")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
+    for (const phone of ["+23670000402", "+23566000403", "+242060000404", "+240222000405", "+24106000406", "+243810000407"]) {
+      expect((await dial(phone)).text).toMatch(/^CON /);
+    }
+  });
+});

@@ -38,7 +38,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
           {(["onboarding.point1", "onboarding.point2", "onboarding.point3"] as const).map((k, i) => (
             <li key={k}>
               <Icon name={(["send", "currencies", "shield"] as const)[i]} size={18} />
-              {t(k)}
+              {t(k, { count: AFRICAN_COUNTRIES.length })}
             </li>
           ))}
         </ul>

@@ -109,6 +109,8 @@ export const serverWo: Record<keyof typeof serverEn, string> = {
   "err.requestExpired": "Laaj bii jeex na.",
   "err.requestAnswered": "Laaj bii tontu nañu ko ba noppi.",
   "err.requestInFlight": "Fey nga laaj bii ba noppi. Ñu ngi ci liggéey.",
+  "err.cemacOutbound": "Yónnee bitim gox CEMAC dafa soxla dëggal bu mat (tolluwaay 2) ci yoonu weccitu xaalis bu BEAC. Yéegal ci Sama xët.",
+  "err.pocketZone": "Denc dolaar walla euro amul ci réewi CEMAC ci yoonu weccitu xaalis bu BEAC.",
 
   "pay.completed": "{type}: {amount} jeex na.",
   "pay.sending": "Ñu ngi yónnee {amount} ci {name}. Dinañu la wax bu agsee.",
@@ -219,4 +221,11 @@ export const serverWo: Record<keyof typeof serverEn, string> = {
   "country.NG": "Niseriya",
   "country.TZ": "Tansani",
   "country.SN": "Senegaal",
+  "country.CM": "Kamerun",
+  "country.CF": "Repiblig Sàntar Afrig",
+  "country.TD": "Cadd",
+  "country.CG": "Repiblig Kongo",
+  "country.GQ": "Gine Ekuwatoryal",
+  "country.GA": "Gaboŋ",
+  "country.CD": "Kongo (RDC)",
 };

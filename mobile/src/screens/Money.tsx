@@ -3,9 +3,11 @@ import { Pressable, Text, View } from "react-native";
 import {
   AFRICAN_COUNTRIES,
   banksFor,
+  corridorPolicy,
   COUNTRY_BY_CODE,
   parseMajorToMinor,
   PURPOSE_CODES,
+  tierAtLeast,
   type MessageKey,
   type NameEnquiryResponse,
   type PurposeCode,
@@ -121,6 +123,8 @@ export function Send({ session }: { session: Session }) {
   };
 
   const needsTier = (mode === "abroad" || mode === "bank") && user.kycTier === "TIER_0";
+  const corridor = corridorPolicy(country.code, dest);
+  const corridorBlocked = mode === "abroad" && !needsTier && !tierAtLeast(user.kycTier, corridor.minTier);
   const selectedBank = banks.find((b) => b.id === bankId);
 
   return (
@@ -198,13 +202,19 @@ export function Send({ session }: { session: Session }) {
                   }}
                   options={others.map((c) => ({ id: c.code, label: `${c.flag} ${countryName(c.code)}` }))}
                 />
+                {corridor.atPar && <Muted>{t("send.atPar")}</Muted>}
                 <ChipSelect label={t("send.purpose")} value={purpose} onChange={setPurpose} options={PURPOSE_CODES.map((p) => ({ id: p.id, label: t(`purpose.${p.id}`) }))} />
               </>
             )}
             <Field label={t("send.recipientPhone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
             <AmountField currency={wallet.currency} value={amount} onChange={setAmount} label={mode === "abroad" ? t("send.youSend") : undefined} />
             {mode === "benki" && <Field label={t("common.noteOptional")} value={note} maxLength={140} onChangeText={setNote} />}
-            <PrimaryButton title={mode === "abroad" ? t("send.getQuote") : t("common.review")} disabled={busy || !amountMinor || phone.length < 9} onPress={review} />
+            {corridorBlocked && <Banner tone="warn">{t("err.cemacOutbound")}</Banner>}
+            <PrimaryButton
+              title={mode === "abroad" ? t("send.getQuote") : t("common.review")}
+              disabled={busy || !amountMinor || phone.length < 9 || corridorBlocked}
+              onPress={review}
+            />
           </>
         )}
         {error && <Banner tone="error">{error}</Banner>}
