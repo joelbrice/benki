@@ -3,8 +3,10 @@ import { COUNTRY_BY_CODE } from "@benki/shared";
 import { ApiRequestError, customerApi } from "../api";
 import { Banner } from "../ui/common";
 import { Cash } from "./Cash";
+import { Groups } from "./Groups";
 import { History } from "./History";
 import { Home } from "./Home";
+import { Loans } from "./Loans";
 import { Onboarding } from "./Onboarding";
 import { Pay } from "./Pay";
 import { Profile } from "./Profile";
@@ -13,7 +15,7 @@ import type { Session } from "./session";
 import { Send } from "./Send";
 import { SetPin } from "./SetPin";
 
-const TABS = ["Home", "Send", "Pay", "Cash", "Savings", "History", "Profile"] as const;
+const TABS = ["Home", "Send", "Pay", "Cash", "Savings", "Groups", "Loans", "History", "Profile"] as const;
 type Tab = (typeof TABS)[number];
 const TOKEN_KEY = "benki.token";
 
@@ -92,7 +94,7 @@ export function CustomerApp() {
           }}
         />
         <p className="muted small" style={{ textAlign: "center" }}>
-          Staff? <a href="#/admin">Open the back-office console</a>
+          Staff? <a href="#/admin">Open the back-office console</a> · No smartphone? <a href="#/ussd">Try the USSD phone simulator</a>
         </p>
       </div>
     );
@@ -133,6 +135,8 @@ export function CustomerApp() {
       {tab === "Pay" && <Pay session={full} />}
       {tab === "Cash" && <Cash session={full} />}
       {tab === "Savings" && <Savings session={full} />}
+      {tab === "Groups" && <Groups session={full} />}
+      {tab === "Loans" && <Loans session={full} />}
       {tab === "History" && <History session={full} />}
       {tab === "Profile" && (
         <Profile

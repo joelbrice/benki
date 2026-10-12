@@ -443,3 +443,40 @@ th {
     position: static;
   }
 }
+
+/* --- USSD feature-phone simulator --- */
+.phone {
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 20px 16px 24px;
+  border-radius: 32px;
+  background: #1d2724;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.2);
+}
+
+.phone-screen {
+  min-height: 220px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #c9dccb;
+  color: #142018;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.9rem;
+}
+
+.phone-screen pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+}
+
+.phone-input {
+  display: grid;
+  gap: 8px;
+}
+
+.phone .ghost {
+  color: #e7efe9;
+}

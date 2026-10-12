@@ -15,6 +15,9 @@ import type {
   FxQuote,
   KycResponse,
   LimitsResponse,
+  Loan,
+  LoanOffer,
+  NameEnquiryResponse,
   Notification,
   OtpSendResponse,
   OtpVerifyResponse,
@@ -22,6 +25,7 @@ import type {
   PurposeCode,
   ReconciliationException,
   ReconciliationRun,
+  SavingsGroup,
   SavingsVault,
   StaffLoginResponse,
   StrReport,
@@ -131,6 +135,23 @@ export function customerApi(token: string) {
       post<PaymentResponse>("/v1/transfers/cross-border", body),
     bill: (body: Movement & Pin & { billerId: string; accountNumber: string }) => post<PaymentResponse>("/v1/payments/bills", body),
     merchant: (body: Movement & Pin & { merchantCode: string; note?: string }) => post<PaymentResponse>("/v1/payments/merchant", body),
+    nameEnquiry: (bankId: string, accountNumber: string) =>
+      post<NameEnquiryResponse>("/v1/transfers/bank/name-enquiry", { bankId, accountNumber }),
+    bankTransfer: (body: Movement & Pin & { bankId: string; accountNumber: string; accountName: string; note?: string }) =>
+      post<PaymentResponse>("/v1/transfers/bank", body),
+    loanOffer: () => get<LoanOffer>("/v1/loans/offer"),
+    loans: () => get<{ loans: Loan[] }>("/v1/loans"),
+    applyLoan: (body: Pin & { idempotencyKey: string; principalMinor: number }) =>
+      post<PaymentResponse & { loan: Loan }>("/v1/loans", { ...body, acceptTerms: true }),
+    repayLoan: (loanId: string, body: Movement & Pin) => post<PaymentResponse & { loan: Loan }>(`/v1/loans/${loanId}/repay`, body),
+    groups: () => get<{ groups: SavingsGroup[] }>("/v1/groups"),
+    createGroup: (name: string) => post<{ group: SavingsGroup }>("/v1/groups", { name }),
+    addGroupMember: (groupId: string, phoneNumber: string) => post<{ group: SavingsGroup }>(`/v1/groups/${groupId}/members`, { phoneNumber }),
+    contribute: (groupId: string, body: Movement & Pin) => post<PaymentResponse>(`/v1/groups/${groupId}/contribute`, body),
+    requestPayout: (groupId: string, body: Pin & { recipientUserId: string; amountMinor: number; reason: string }) =>
+      post<{ group: SavingsGroup }>(`/v1/groups/${groupId}/payouts`, body),
+    votePayout: (groupId: string, requestId: string, approve: boolean, pin: string) =>
+      post<{ group: SavingsGroup }>(`/v1/groups/${groupId}/payouts/${requestId}/vote`, { approve, pin }),
     vaults: () => get<{ vaults: SavingsVault[] }>("/v1/savings"),
     createVault: (name: string, targetMinor: number) => post<{ vault: SavingsVault }>("/v1/savings", { name, targetMinor }),
     vaultDeposit: (vaultId: string, body: Movement) => post<PaymentResponse>(`/v1/savings/${vaultId}/deposit`, body),
@@ -155,6 +176,25 @@ export function customerApi(token: string) {
 }
 
 export type CustomerApi = ReturnType<typeof customerApi>;
+
+/** Development-only USSD simulator: returns the raw "CON …" / "END …" screen. */
+export async function ussdDial(sessionId: string, phoneNumber: string, text: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}/v1/ussd/simulator`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, phoneNumber, text }),
+    });
+  } catch {
+    return "END Network unavailable. Is the Benki API running?";
+  }
+  if (!res.ok) {
+    const json = (await res.json().catch(() => null)) as ApiErrorBody | null;
+    return `END ${json?.error.message ?? `Request failed (${res.status})`}`;
+  }
+  return res.text();
+}
 
 export function adminApi(token: string) {
   const get = <T>(path: string) => request<T>(path, { token });

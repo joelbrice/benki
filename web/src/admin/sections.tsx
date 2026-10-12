@@ -104,6 +104,7 @@ export function Overview({ api }: { api: AdminApi }) {
                 ["Awaiting 2nd approval", data.pendingApprovals],
                 ["Payouts in flight", data.pendingProviderPayouts],
                 ["Open disputes", data.openDisputes],
+                ["Savings groups", data.savingsGroups],
               ] as [string, number][]
             ).map(([k, v]) => (
               <div key={k} className="subcard stat">
@@ -143,6 +144,36 @@ export function Overview({ api }: { api: AdminApi }) {
           </div>
         </div>
       </Section>
+      {data && (
+        <Section title="Nano-loan book">
+          {data.loanBook.length === 0 ? (
+            <p className="muted">No loans outstanding.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Currency</th>
+                    <th>Current</th>
+                    <th>Overdue</th>
+                    <th>Outstanding</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.loanBook.map((b) => (
+                    <tr key={b.currency}>
+                      <td>{b.currency}</td>
+                      <td>{b.activeLoans}</td>
+                      <td>{b.overdueLoans > 0 ? <span className="badge danger">{b.overdueLoans}</span> : 0}</td>
+                      <td>{formatAmount(b.outstandingMinor, b.currency)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+      )}
       {data && data.volumeByType.length > 0 && (
         <Section title="Completed volume">
           <div className="table-wrap">

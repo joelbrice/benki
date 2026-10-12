@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminConsole } from "./admin/AdminConsole";
 import { CustomerApp } from "./customer/CustomerApp";
+import { UssdSimulator } from "./ussd/UssdSimulator";
 
 function useHash() {
   const [hash, setHash] = useState(() => window.location.hash);
@@ -14,5 +15,7 @@ function useHash() {
 
 export default function App() {
   const hash = useHash();
-  return hash.startsWith("#/admin") ? <AdminConsole /> : <CustomerApp />;
+  if (hash.startsWith("#/admin")) return <AdminConsole />;
+  if (hash.startsWith("#/ussd")) return <UssdSimulator />;
+  return <CustomerApp />;
 }

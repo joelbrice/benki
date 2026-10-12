@@ -191,6 +191,14 @@ function completionMessage(tx: TransactionRow): string {
       return tx.token ? `Bill paid. Your meter token is ${tx.token}.` : "Bill paid.";
     case "CASH_OUT":
       return `Withdrawal of ${amount} approved — collect your cash from the agent.`;
+    case "LOAN_DISBURSEMENT": {
+      const meta = JSON.parse(tx.metadata) as { loanFeeMinor: number; dueAt: string };
+      return `${amount} is in your wallet. Repay ${formatAmount(tx.amount_minor + meta.loanFeeMinor, tx.currency)} by ${meta.dueAt.slice(0, 10)}.`;
+    }
+    case "LOAN_REPAYMENT":
+      return `Repayment of ${amount} received. Thank you!`;
+    case "GROUP_CONTRIBUTION":
+      return `${amount} added to ${tx.counterparty_label.replace(/^Group: /, "")}.`;
     case "CROSS_BORDER":
       return `Sent. The recipient gets ${formatAmount(tx.receive_amount_minor!, tx.receive_currency!)}.`;
     default:

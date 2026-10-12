@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { AFRICAN_COUNTRIES, COUNTRY_BY_CODE, formatAmount, parseMajorToMinor, PURPOSE_CODES, type PurposeCode } from "@benki/shared";
+import {
+  AFRICAN_COUNTRIES,
+  banksFor,
+  COUNTRY_BY_CODE,
+  formatAmount,
+  parseMajorToMinor,
+  PURPOSE_CODES,
+  type NameEnquiryResponse,
+  type PurposeCode,
+} from "@benki/shared";
 import { AmountField, Banner, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
 import type { Session } from "./session";
 
-type Mode = "benki" | "momo" | "abroad";
+type Mode = "benki" | "momo" | "bank" | "abroad";
 
 export function Send({ session }: { session: Session }) {
   const { api, country, wallet, user } = session;
@@ -18,6 +27,10 @@ export function Send({ session }: { session: Session }) {
   const otherCountries = AFRICAN_COUNTRIES.filter((c) => c.code !== country.code);
   const [destCountry, setDestCountry] = useState(otherCountries[0].code);
   const [purpose, setPurpose] = useState<PurposeCode>("FAMILY_SUPPORT");
+  const banks = banksFor(country.code);
+  const [bankId, setBankId] = useState(banks[0]?.id ?? "");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [resolved, setResolved] = useState<NameEnquiryResponse | null>(null);
   const { busy, error, setError, run } = useAction();
 
   const amountMinor = parseMajorToMinor(amount, wallet.currency);
@@ -25,6 +38,8 @@ export function Send({ session }: { session: Session }) {
     setIntent(null);
     setAmount("");
     setNote("");
+    setResolved(null);
+    setAccountNumber("");
     void session.refresh();
   };
 
@@ -59,6 +74,33 @@ export function Send({ session }: { session: Session }) {
         feeType: "MOBILE_MONEY_PAYOUT",
         requirePin: true,
         submit: (pin, idempotencyKey) => api.mobileMoney({ idempotencyKey, pin, providerId, destinationPhoneNumber: phone, amountMinor, note: note || undefined }),
+      });
+    } else if (mode === "bank") {
+      if (!resolved) return setError("Look up the account first");
+      const bank = banks.find((b) => b.id === resolved.bankId)!;
+      setIntent({
+        title: `Send to ${bank.name}`,
+        rows: [
+          ["Account name", resolved.accountName],
+          ["Bank", bank.name],
+          ["Account", resolved.accountNumber],
+          ["Amount", formatAmount(amountMinor, wallet.currency)],
+          ...(note ? ([["Note", note]] as [string, string][]) : []),
+        ],
+        currency: wallet.currency,
+        amountMinor,
+        feeType: "BANK_TRANSFER",
+        requirePin: true,
+        submit: (pin, idempotencyKey) =>
+          api.bankTransfer({
+            idempotencyKey,
+            pin,
+            bankId: resolved.bankId,
+            accountNumber: resolved.accountNumber,
+            accountName: resolved.accountName,
+            amountMinor,
+            note: note || undefined,
+          }),
       });
     } else {
       run(async () => {
@@ -99,6 +141,7 @@ export function Send({ session }: { session: Session }) {
           [
             ["benki", "Benki user"],
             ["momo", "Mobile money"],
+            ["bank", "Bank"],
             ["abroad", "Abroad"],
           ] as [Mode, string][]
         ).map(([m, label]) => (
@@ -108,8 +151,66 @@ export function Send({ session }: { session: Session }) {
         ))}
       </div>
 
-      {mode === "abroad" && user.kycTier === "TIER_0" ? (
-        <Banner tone="warn">Verify your identity (Tier 1) in Profile to send money abroad.</Banner>
+      {(mode === "abroad" || mode === "bank") && user.kycTier === "TIER_0" ? (
+        <Banner tone="warn">Verify your identity (Tier 1) in Profile to send money {mode === "bank" ? "to bank accounts" : "abroad"}.</Banner>
+      ) : mode === "bank" ? (
+        <>
+          <label htmlFor="bank-id">
+            Bank
+            <select
+              id="bank-id"
+              value={bankId}
+              onChange={(e) => {
+                setBankId(e.target.value);
+                setResolved(null);
+              }}
+            >
+              {banks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label htmlFor="bank-account">
+            {banks.find((b) => b.id === bankId)?.accountNumberHint ?? "Account number"}
+            <input
+              id="bank-account"
+              autoComplete="off"
+              value={accountNumber}
+              onChange={(e) => {
+                setAccountNumber(e.target.value.toUpperCase());
+                setResolved(null);
+              }}
+            />
+          </label>
+          {resolved ? (
+            <Banner tone="success">
+              Account holder: <strong>{resolved.accountName}</strong>. Make sure this is who you mean to pay.
+            </Banner>
+          ) : (
+            <button
+              className="secondary"
+              disabled={busy || accountNumber.trim().length < 6}
+              onClick={() => run(async () => setResolved(await api.nameEnquiry(bankId, accountNumber)))}
+            >
+              {busy ? "Checking…" : "Look up account"}
+            </button>
+          )}
+          {resolved && (
+            <>
+              <AmountField id="bank-amount" currency={wallet.currency} value={amount} onChange={setAmount} />
+              <label htmlFor="bank-note">
+                Reference (optional)
+                <input id="bank-note" maxLength={140} value={note} onChange={(e) => setNote(e.target.value)} />
+              </label>
+              <button disabled={busy || !amountMinor} onClick={review}>
+                Review
+              </button>
+            </>
+          )}
+          {error && <Banner tone="error">{error}</Banner>}
+        </>
       ) : (
         <>
           {mode === "momo" && (

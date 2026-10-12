@@ -5,13 +5,14 @@ import { ApiRequestError, customerApi } from "./src/api";
 import { Banner, Muted } from "./src/components/ui";
 import { History, Profile, Savings } from "./src/screens/Account";
 import { Onboarding, SetPin } from "./src/screens/Auth";
+import { Groups, Loans } from "./src/screens/Community";
 import { Home } from "./src/screens/Home";
 import { Cash, Pay, Send } from "./src/screens/Money";
 import type { Session } from "./src/session";
 import { deleteItem, getItem, setItem } from "./src/storage";
 import { colors } from "./src/theme/colors";
 
-const TABS = ["Home", "Send", "Pay", "Cash", "Savings", "History", "Profile"] as const;
+const TABS = ["Home", "Send", "Pay", "Cash", "Savings", "Groups", "Loans", "History", "Profile"] as const;
 type Tab = (typeof TABS)[number];
 const TOKEN_KEY = "benki.token";
 
@@ -77,6 +78,8 @@ export default function App() {
         {tab === "Pay" && <Pay session={full} />}
         {tab === "Cash" && <Cash session={full} />}
         {tab === "Savings" && <Savings session={full} />}
+        {tab === "Groups" && <Groups session={full} />}
+        {tab === "Loans" && <Loans session={full} />}
         {tab === "History" && <History session={full} />}
         {tab === "Profile" && <Profile session={full} onLogout={() => void api.logout().finally(signOut)} />}
       </>
