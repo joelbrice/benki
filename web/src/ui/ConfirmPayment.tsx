@@ -21,7 +21,7 @@ export interface PaymentIntent {
  * retrying after a timeout or error can't charge the customer twice.
  */
 export function ConfirmPayment({ api, intent, onDone, onCancel }: { api: CustomerApi; intent: PaymentIntent; onDone: () => void; onCancel: () => void }) {
-  const { t, money } = useI18n();
+  const { t, money, bidi } = useI18n();
   const key = useRef(newIdempotencyKey());
   const [pin, setPin] = useState("");
   const [fee, setFee] = useState<number | null>(intent.feeType ? null : 0);
@@ -65,14 +65,14 @@ export function ConfirmPayment({ api, intent, onDone, onCancel }: { api: Custome
   return (
     <div className="card">
       <button className="link-back" onClick={onCancel} disabled={busy}>
-        ← {t("common.back")}
+        <span className="back-arrow" aria-hidden="true">←</span> {t("common.back")}
       </button>
       <h2>{t("confirm.review", { title: intent.title })}</h2>
       <dl className="summary">
         {rows.map(([k, v], i) => (
           <div key={k} className={i === rows.length - 1 && intent.feeType ? "summary-total" : undefined} style={{ display: "contents" }}>
             <dt>{k}</dt>
-            <dd>{v}</dd>
+            <dd>{bidi(v)}</dd>
           </div>
         ))}
       </dl>

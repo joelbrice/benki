@@ -155,7 +155,7 @@ function GroupDetail({
   return (
     <div className="stack">
       <button className="link-back" onClick={onBack}>
-        ← {t("groups.all")}
+        <span className="back-arrow" aria-hidden="true">←</span> {t("groups.all")}
       </button>
       <section className="balance-card compact">
         <span className="greeting">{group.name}</span>

@@ -3,14 +3,27 @@ import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } fro
 import { Feather } from "@expo/vector-icons";
 import { LANGUAGES_BY_COUNTRY, LOCALES, minorUnitsPerMajor, parseMajorToMinor, type Locale, type TransactionStatus, type UserTransaction } from "@benki/shared";
 import { ApiRequestError } from "../api";
-import { useI18n, type I18n } from "../i18n";
+import { useI18n, useIsRtl, type I18n } from "../i18n";
 import { colors } from "../theme/colors";
 
 export type IconName = ComponentProps<typeof Feather>["name"];
 
+/** Icons that point along the reading direction, mirrored for right-to-left languages. */
+const DIRECTIONAL = new Set<IconName>(["chevron-right", "chevron-left", "arrow-left", "arrow-right", "arrow-up-right", "arrow-down-left", "log-out"]);
+
 export function Icon({ name, size = 20, color = colors.text }: { name: IconName; size?: number; color?: string }) {
+  const mirror = useIsRtl() && DIRECTIONAL.has(name);
   // Decorative: the surrounding control carries the accessible name.
-  return <Feather name={name} size={size} color={color} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />;
+  return (
+    <Feather
+      name={name}
+      size={size}
+      color={color}
+      style={mirror ? { transform: [{ scaleX: -1 }] } : undefined}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    />
+  );
 }
 
 export function Card({ children, highlight = false }: { children: ReactNode; highlight?: boolean }) {
@@ -305,7 +318,7 @@ function counterpartyLabel(tx: UserTransaction): string {
 }
 
 export function TxRow({ tx, children }: { tx: UserTransaction; children?: ReactNode }) {
-  const { t, money, date } = useI18n();
+  const { t, money, date, bidi } = useI18n();
   const credit = tx.direction === "CREDIT";
   const shown =
     tx.type === "FX_CONVERSION" && credit && tx.receiveAmountMinor !== null && tx.receiveCurrency
@@ -321,14 +334,14 @@ export function TxRow({ tx, children }: { tx: UserTransaction; children?: ReactN
           <Text style={styles.txTitle} numberOfLines={1}>
             {t(`type.${tx.type}`)}
           </Text>
-          <Text style={[styles.txAmount, credit && { color: colors.primary }]}>
+          <Text style={[styles.txAmount, credit && { color: colors.primary }, { writingDirection: "ltr" }]}>
             {credit ? "+" : "−"}
             {shown}
           </Text>
         </View>
         <View style={styles.txLine}>
           <Text style={[styles.muted, { flex: 1 }]} numberOfLines={1}>
-            {counterpartyLabel(tx)}
+            {bidi(counterpartyLabel(tx))}
           </Text>
           {tx.status !== "COMPLETED" ? <StatusBadge status={tx.status} /> : <Text style={styles.small}>{date(tx.createdAt, true)}</Text>}
         </View>

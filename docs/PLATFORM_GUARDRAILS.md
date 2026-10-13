@@ -96,8 +96,19 @@ Verified in `payments.test.ts` and `backoffice.test.ts`.
 
 ## 10. Language and accessibility
 
-All customer-facing text — app screens, API error messages, payment confirmations, notifications (also the SMS body) and every USSD screen — comes from typed catalogs in `packages/shared/src/i18n`. A test fails if any language misses a key or changes a placeholder (`i18n.test.ts`). Amounts are formatted per language and the apps accept both `1,250.50` and `1 250,50`. Compliance wording stays generic in every language (no tipping off). The mobile app gives every tab, tile and control an accessible name and hides decorative icons from screen readers.
+Nine languages: English, French, Spanish, Arabic, Kiswahili, Lingala, Hausa, Yorùbá and Wolof. All customer-facing text — app screens, API error messages, payment confirmations, notifications (also the SMS body) and every USSD screen — comes from typed catalogs in `packages/shared/src/i18n`. A test fails if any language misses a key or changes a placeholder (`i18n.test.ts`). Amounts are formatted per language and the apps accept both `1,250.50` and `1 250,50`, and Arabic-Indic digits. Arabic is laid out right-to-left on web and mobile, but amounts, PINs and phone numbers always use Latin digits so they read the same on every channel, and phone numbers are isolated so their `+` stays in front. USSD language menus only list the market's languages plus English and French, so a screen fits in one UCS-2 message. Compliance wording stays generic in every language (no tipping off). The mobile app gives every tab, tile and control an accessible name and hides decorative icons from screen readers.
 
-## 11. Platform hardening
+## 11. Central Africa (CEMAC) exchange control
+
+| Control | Implementation | Verified by |
+| --- | --- | --- |
+| Transfers inside CEMAC (same XAF) settle at par: no exchange margin, regional fee only | `shared/zones.ts` `corridorPolicy`, `services/fx.ts` | `products.test.ts` |
+| Transfers from CEMAC to outside the zone need Tier 2 (BEAC exchange regulation: identified customer and documented purpose) | `corridorPolicy().minTier`, `err.cemacOutbound` | `products.test.ts` |
+| No foreign-currency (USD/EUR) pockets for CEMAC residents | `pocketsAllowed`, `services/pockets.ts` | `products.test.ts` |
+| XOF ↔ XAF is treated as a foreign exchange (different central banks), with the normal margin | `corridorPolicy` | `products.test.ts` |
+
+These encode our reading of Règlement n°02/18/CEMAC/UMAC/CM (exchange control) and must be confirmed with local counsel before launch.
+
+## 12. Platform hardening
 
 Security headers, no `x-powered-by`, CORS allow-list, 16 KB body limit, JSON errors with correlation IDs, and a generic 500 that never leaks internals (`http/middleware.ts`, `app.ts`). In production, `loadConfig` refuses to boot with a development data key or webhook secret, an exposed OTP, seeded demo staff, or localhost CORS origins. Verified in `security.test.ts`.

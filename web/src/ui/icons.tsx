@@ -36,10 +36,13 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS;
 
+/** Icons that point along the reading direction, mirrored in right-to-left languages. */
+const DIRECTIONAL = new Set<IconName>(["chevron", "send", "request", "logout"]);
+
 export function Icon({ name, size = 20, className }: { name: IconName; size?: number; className?: string }) {
   return (
     <svg
-      className={className}
+      className={DIRECTIONAL.has(name) ? `icon-directional${className ? ` ${className}` : ""}` : className}
       width={size}
       height={size}
       viewBox="0 0 24 24"

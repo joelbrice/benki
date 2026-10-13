@@ -180,7 +180,7 @@ export function Loans({ session }: { session: Session }) {
 // --- Savings groups ---------------------------------------------------------------
 
 export function Groups({ session }: { session: Session }) {
-  const { t, money } = useI18n();
+  const { t, money, rtl } = useI18n();
   const { api, wallet, user, country } = session;
   const [groups, setGroups] = useState<SavingsGroup[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -278,7 +278,7 @@ export function Groups({ session }: { session: Session }) {
 
   return (
     <>
-      <GhostButton title={`← ${t("groups.all")}`} onPress={() => setOpenId(null)} />
+      <GhostButton title={`${rtl ? "→" : "←"} ${t("groups.all")}`} onPress={() => setOpenId(null)} />
       <View style={{ backgroundColor: colors.heroMid, borderRadius: 22, padding: 20, gap: 4 }}>
         <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>{group.name}</Text>
         <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12 }}>{t("groups.pool")}</Text>

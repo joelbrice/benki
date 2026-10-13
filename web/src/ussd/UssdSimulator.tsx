@@ -34,14 +34,14 @@ export function UssdSimulator() {
   };
 
   // PIN prompts are masked on screen, as on a real handset.
-  const isPinPrompt = !!screen && /PIN/i.test(screen.split("\n").pop() ?? "");
+  const isPinPrompt = !!screen && /PIN|الرقم السري/i.test(screen.split("\n").pop() ?? "");
 
   return (
     <div className="auth-shell">
       <div className="auth-card wide">
         <div className="auth-top">
           <a className="link-back" href="#/">
-            ← {t("ussdSim.backToApp")}
+            <span className="back-arrow" aria-hidden="true">←</span> {t("ussdSim.backToApp")}
           </a>
           <LanguageSelect compact />
         </div>
@@ -53,7 +53,7 @@ export function UssdSimulator() {
         </label>
         <div className="phone" aria-label="Feature phone">
           <div className="phone-screen" role="log" aria-live="polite">
-            {screen === null ? <span className="muted">{t("ussdSim.dial", { code: USSD_SHORT_CODE })}</span> : <pre>{screen}</pre>}
+            {screen === null ? <span className="muted">{t("ussdSim.dial", { code: USSD_SHORT_CODE })}</span> : <pre dir="auto">{screen}</pre>}
           </div>
           {open ? (
             <form

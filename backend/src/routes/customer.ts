@@ -127,8 +127,11 @@ export function customerRoutes(ctx: AppContext): Router {
     res.json(requestOtp(ctx, body.phoneNumber, body.countryCode));
   });
   authRouter.post("/otp/verify", rateLimit(ctx, "otp-verify", 10, 60_000), (req, res) => {
-    const body = parse(z.object({ phoneNumber: e164Phone, otp: z.string().regex(/^\d{6}$/, "must be 6 digits") }), req.body);
-    res.json(verifyOtp(ctx, body.phoneNumber, body.otp, deviceIdOf(req, true)!));
+    const body = parse(
+      z.object({ phoneNumber: e164Phone, otp: z.string().regex(/^\d{6}$/, "must be 6 digits"), locale: z.enum(LOCALE_CODES as [Locale, ...Locale[]]).optional() }),
+      req.body,
+    );
+    res.json(verifyOtp(ctx, body.phoneNumber, body.otp, deviceIdOf(req, true)!, body.locale));
   });
   authRouter.post("/logout", authed, (req, res) => {
     logout(ctx, bearerToken(req)!);

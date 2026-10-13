@@ -29,6 +29,15 @@ export function formatAmount(amountMinor: number, currency: string, locale = "en
   return `${numberFormat(locale, decimals).format(amountMinor / scale).replace(/[\u202f\u00a0]/g, " ")} ${currency}`;
 }
 
+/** Arabic-Indic (٠-٩) and Persian (۰-۹) digits and separators → ASCII, as Arabic keyboards type them. */
+export function normalizeDigits(input: string): string {
+  return input
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06f0-\u06f9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/\u066b/g, ".")
+    .replace(/\u066c/g, ",");
+}
+
 /**
  * Parses a user-typed major amount into minor units, or null if invalid.
  * Accepts English ("1,250.50") and French ("1 250,50") conventions: a single
@@ -38,7 +47,7 @@ export function formatAmount(amountMinor: number, currency: string, locale = "en
  */
 export function parseMajorToMinor(input: string, currency: string): number | null {
   const scale = minorUnitsPerMajor(currency);
-  const compact = input.replace(/[\s\u202f\u00a0']/g, "");
+  const compact = normalizeDigits(input).replace(/[\s\u202f\u00a0'\u200f\u200e]/g, "");
   if (!/^\d[\d.,]*$/.test(compact)) return null;
   let whole = compact;
   let fraction = "";

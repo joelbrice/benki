@@ -70,7 +70,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
             <PrimaryButton
               title={t("onboarding.verify")}
               disabled={busy || otp.length !== 6}
-              onPress={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp)).token))}
+              onPress={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp, locale)).token))}
             />
             <GhostButton title={t("onboarding.changeNumber")} onPress={() => setOtpSent(false)} />
           </>

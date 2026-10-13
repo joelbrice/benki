@@ -1,4 +1,4 @@
-import { COUNTRY_BY_CODE, DEFAULT_LOCALE_BY_COUNTRY, type MessageKey, type OtpSendResponse, type OtpVerifyResponse, msg } from "@benki/shared";
+import { COUNTRY_BY_CODE, DEFAULT_LOCALE_BY_COUNTRY, type Locale, type MessageKey, type OtpSendResponse, type OtpVerifyResponse, msg } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { all, one, run } from "../db/query";
@@ -78,7 +78,8 @@ export function requestOtp(ctx: AppContext, phone: string, countryCode: string):
   };
 }
 
-export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId: string): OtpVerifyResponse {
+/** `locale` (chosen during onboarding) applies only when this creates the account. */
+export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId: string, locale?: Locale): OtpVerifyResponse {
   const row = one<OtpRow>(ctx.db, "SELECT * FROM otps WHERE phone = ?", phone);
   if (!row || new Date(row.expires_at) <= ctx.now()) throw unauthorized(msg("err.otpExpired"));
   if (row.attempts >= OTP_MAX_ATTEMPTS) {
@@ -104,7 +105,7 @@ export function verifyOtp(ctx: AppContext, phone: string, code: string, deviceId
         id,
         phone,
         row.country_code,
-        DEFAULT_LOCALE_BY_COUNTRY[row.country_code] ?? "en",
+        locale ?? DEFAULT_LOCALE_BY_COUNTRY[row.country_code] ?? "en",
         now,
       );
       user = getUser(ctx, id)!;

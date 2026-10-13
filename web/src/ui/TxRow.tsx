@@ -34,7 +34,7 @@ function counterpartyLabel(tx: UserTransaction): string {
 }
 
 export function TxRow({ tx, children }: { tx: UserTransaction; children?: ReactNode }) {
-  const { t, money, date } = useI18n();
+  const { t, money, date, bidi } = useI18n();
   const credit = tx.direction === "CREDIT";
   // A sold pocket credits the wallet with the converted amount, so show what arrived.
   const shown =
@@ -49,13 +49,14 @@ export function TxRow({ tx, children }: { tx: UserTransaction; children?: ReactN
       <div className="tx-body">
         <div className="tx-line">
           <strong>{t(`type.${tx.type}`)}</strong>
-          <span className={`amount ${credit ? "credit" : "debit"}`}>
+          {/* Signed amounts read left-to-right in every language, so "+" stays next to the number. */}
+          <span className={`amount ${credit ? "credit" : "debit"}`} dir="ltr">
             {credit ? "+" : "−"}
             {shown}
           </span>
         </div>
         <div className="tx-line muted small">
-          <span className="ellipsis">{counterpartyLabel(tx)}</span>
+          <span className="ellipsis">{bidi(counterpartyLabel(tx))}</span>
           {tx.status !== "COMPLETED" ? <StatusBadge status={tx.status} /> : <span>{date(tx.createdAt, true)}</span>}
         </div>
         {children}

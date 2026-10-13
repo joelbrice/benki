@@ -62,7 +62,7 @@ function Brand() {
 }
 
 export function CustomerApp() {
-  const { t, setLocale } = useI18n();
+  const { t, setLocale, bidi } = useI18n();
   const [token, setToken] = useState<string | null>(readToken);
   const api = useMemo(() => (token ? customerApi(token) : null), [token]);
   const [session, setSession] = useState<Omit<Session, "refresh" | "go" | "preset"> | null>(null);
@@ -206,7 +206,7 @@ export function CustomerApp() {
           </div>
         </header>
         <div className="desktop-user muted small">
-          {nameOrPhone} · {t(`country.${session.country.code}` as MessageKey)} · {t(`tier.${session.user.kycTier}`)}
+          {bidi(nameOrPhone)} · {t(`country.${session.country.code}` as MessageKey)} · {t(`tier.${session.user.kycTier}`)}
         </div>
         {error && <Banner tone="error">{error}</Banner>}
         <main className="content">

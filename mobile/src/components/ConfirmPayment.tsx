@@ -18,7 +18,7 @@ export interface PaymentIntent {
 
 /** Review → PIN → submit, with one idempotency key per intent so retries never double-charge. */
 export function ConfirmPayment({ api, intent, onDone, onCancel }: { api: CustomerApi; intent: PaymentIntent; onDone: () => void; onCancel: () => void }) {
-  const { t, money } = useI18n();
+  const { t, money, bidi } = useI18n();
   const key = useRef(newIdempotencyKey());
   const [pin, setPin] = useState("");
   const [fee, setFee] = useState<number | null>(intent.feeType ? null : 0);
@@ -64,7 +64,7 @@ export function ConfirmPayment({ api, intent, onDone, onCancel }: { api: Custome
     );
   }
 
-  const rows: [string, string][] = [...intent.rows];
+  const rows: [string, string][] = intent.rows.map(([k, v]) => [k, bidi(v)]);
   if (intent.feeType) {
     rows.push([t("common.fee"), fee === null ? "…" : fee === 0 ? t("common.free") : money(fee, intent.currency)]);
     if (fee !== null) rows.push([t("common.total"), money(intent.amountMinor + fee, intent.currency)]);

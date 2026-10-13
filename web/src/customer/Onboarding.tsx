@@ -100,7 +100,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
               />
             </label>
-            <button className="block" disabled={busy || otp.length !== 6} onClick={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp)).token))}>
+            <button className="block" disabled={busy || otp.length !== 6} onClick={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp, locale)).token))}>
               {t("onboarding.verify")}
             </button>
             <button className="ghost block" disabled={busy} onClick={() => setOtpSent(false)}>

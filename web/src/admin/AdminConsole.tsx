@@ -28,7 +28,7 @@ function StaffLogin({ onLogin }: { onLogin: (token: string) => void }) {
         Sign in
       </button>
       <a className="small" href="#/">
-        ← Customer app
+        <span className="back-arrow" aria-hidden="true">←</span> Customer app
       </a>
     </div>
   );

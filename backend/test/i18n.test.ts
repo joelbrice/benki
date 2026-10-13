@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CATALOGS, en, LOCALE_CODES, placeholdersOf, t, type MessageKey } from "@benki/shared";
+import { bidiSafe, CATALOGS, DEFAULT_LOCALE_BY_COUNTRY, en, isRtl, LOCALE_CODES, negotiateLocale, parseMajorToMinor, placeholdersOf, t, type MessageKey } from "@benki/shared";
 
 describe("translations", () => {
   const keys = Object.keys(en) as MessageKey[];
@@ -19,5 +19,25 @@ describe("translations", () => {
     expect(t("sw", "notif.processing", { type: { key: "type.P2P" }, amount: { amountMinor: 500, currency: "XOF" }, ref: "TXN_1" })).toBe(
       "Uhamisho: 500 XOF inashughulikiwa. Kumb. TXN_1.",
     );
+  });
+
+  it("covers Central Africa: Spanish, Arabic (right-to-left, Latin digits) and Lingala", () => {
+    expect(DEFAULT_LOCALE_BY_COUNTRY.GQ).toBe("es");
+    expect(isRtl("ar")).toBe(true);
+    expect(isRtl("fr")).toBe(false);
+    expect(negotiateLocale("ar-TD,fr;q=0.8")).toBe("ar");
+    expect(negotiateLocale("ln-CD")).toBe("ln");
+    expect(t("ar", "ussd.available", { amount: { amountMinor: 1_250_000, currency: "XAF" } })).toBe("المتاح: 1,250,000 XAF");
+    expect(t("es", "pay.delivered", { name: "Ana" })).toBe("Entregado a Ana.");
+    expect(t("ln", "country.CD")).toBe("Kongó-Kinshasa");
+    // Phone numbers keep their "+" in front inside Arabic text; other languages are untouched.
+    expect(t("ar", "onboarding.codeSent", { phone: "+23566000001" })).toContain("\u200e+23566000001");
+    expect(bidiSafe("fr", "+23566000001")).toBe("+23566000001");
+  });
+
+  it("reads amounts typed with Arabic-Indic digits", () => {
+    expect(parseMajorToMinor("١٢٥٠٠", "XAF")).toBe(12_500);
+    expect(parseMajorToMinor("۱۲۵۰٫۵۰", "USD")).toBe(125_050);
+    expect(parseMajorToMinor("١٬٢٥٠", "XAF")).toBe(1_250);
   });
 });

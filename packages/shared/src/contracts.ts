@@ -176,6 +176,8 @@ export interface OtpSendResponse {
 export interface OtpVerifyRequest {
   phoneNumber: string;
   otp: string;
+  /** Language chosen during onboarding; saved on a new account (existing accounts keep theirs). */
+  locale?: Locale;
 }
 
 export interface OtpVerifyResponse {

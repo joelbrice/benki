@@ -89,9 +89,15 @@ export async function handleUssd(ctx: AppContext, req: UssdRequest): Promise<str
   }
 }
 
+/**
+ * Registration offers the market's languages (plus English). The menu adds
+ * French too, but not every language: a USSD screen holds 182 GSM-7
+ * characters, and one non-Latin name (Arabic) switches the whole screen to
+ * UCS-2, which halves that. The apps offer every language.
+ */
 function languageOptions(countryCode: string, all: boolean): Locale[] {
-  if (all) return LOCALES.map((l) => l.code);
   const local = LANGUAGES_BY_COUNTRY[countryCode] ?? ["en"];
+  if (all) return LOCALES.map((l) => l.code).filter((code) => code === "en" || code === "fr" || local.includes(code));
   return local.includes("en") ? local : [...local, "en"];
 }
 

@@ -1,5 +1,5 @@
 import { formatAmount } from "../money";
-import { LOCALES, type Locale } from "./locales";
+import { isRtl, LOCALES, type Locale } from "./locales";
 import { serverEn } from "./server.en";
 import { uiEn } from "./ui.en";
 import { fr } from "./fr";
@@ -7,6 +7,9 @@ import { ha } from "./ha";
 import { sw } from "./sw";
 import { wo } from "./wo";
 import { yo } from "./yo";
+import { es } from "./es";
+import { ar } from "./ar";
+import { ln } from "./ln";
 
 export * from "./locales";
 
@@ -15,7 +18,7 @@ export type MessageKey = keyof typeof en;
 /** Every locale must translate every key (enforced by the type and by tests). */
 export type Catalog = Record<MessageKey, string>;
 
-export const CATALOGS: Record<Locale, Catalog> = { en, fr, sw, ha, yo, wo };
+export const CATALOGS: Record<Locale, Catalog> = { en, fr, sw, ha, yo, wo, es, ar, ln };
 
 /** An amount to be formatted in the reader's locale. */
 export interface MoneyParam {
@@ -46,11 +49,20 @@ function render(value: MsgParam, locale: Locale): string {
   return value;
 }
 
+/**
+ * Keeps international phone numbers readable inside right-to-left text: without
+ * a left-to-right mark the bidi algorithm shows "+23566000000" as
+ * "23566000000+". A no-op for left-to-right languages.
+ */
+export function bidiSafe(locale: Locale, text: string): string {
+  return isRtl(locale) ? text.replace(/(^|[^\d\u200e])\+(?=\d)/g, "$1\u200e+") : text;
+}
+
 /** Translates a key, falling back to English for anything missing. */
 export function t(locale: Locale, key: MessageKey, params?: MsgParams): string {
   const template = CATALOGS[locale]?.[key] || en[key] || key;
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? render(params[name], locale) : match));
+  return bidiSafe(locale, template.replace(/\{(\w+)\}/g, (match, name: string) => (name in params ? render(params[name], locale) : match)));
 }
 
 export function renderMsg(locale: Locale, message: Msg | string): string {

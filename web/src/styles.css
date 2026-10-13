@@ -256,11 +256,11 @@ textarea {
 .amount-input input {
   font-size: 1.25rem;
   font-weight: 700;
-  padding-right: 64px;
+  padding-inline-end: 64px;
 }
 .amount-currency {
   position: absolute;
-  right: 14px;
+  inset-inline-end: 14px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--ink-3);
@@ -574,7 +574,7 @@ button.link:hover:not(:disabled),
     gap: 24px;
     padding: 22px 16px;
     background: var(--surface);
-    border-right: 1px solid var(--line);
+    border-inline-end: 1px solid var(--line);
     overflow-y: auto;
   }
   .sidebar nav {
@@ -611,7 +611,7 @@ button.link:hover:not(:disabled),
   }
   .desktop-user {
     display: block;
-    text-align: right;
+    text-align: end;
     padding: 18px 28px 0;
   }
   .content {
@@ -791,7 +791,7 @@ button.link:hover:not(:disabled),
 
 .alert-card {
   justify-content: flex-start;
-  text-align: left;
+  text-align: start;
   gap: 14px;
   padding: 14px 18px;
   border-radius: var(--radius);
@@ -996,7 +996,7 @@ button.link:hover:not(:disabled),
 }
 .agent {
   justify-content: flex-start;
-  text-align: left;
+  text-align: start;
   gap: 12px;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
@@ -1035,7 +1035,7 @@ button.link:hover:not(:disabled),
   color: rgba(255, 255, 255, 0.75);
 }
 .group-card {
-  text-align: left;
+  text-align: start;
   align-items: stretch;
   color: var(--ink);
   background: var(--surface);
@@ -1164,7 +1164,7 @@ button.link:hover:not(:disabled),
 }
 .summary dd {
   margin: 0;
-  text-align: right;
+  text-align: end;
   font-weight: 650;
 }
 .summary .summary-total dt,
@@ -1182,7 +1182,7 @@ table {
 }
 th,
 td {
-  text-align: left;
+  text-align: start;
   padding: 9px 8px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
@@ -1429,7 +1429,7 @@ tr.current td {
 }
 .admin-nav button {
   justify-content: space-between;
-  text-align: left;
+  text-align: start;
   background: transparent;
   color: var(--ink-2);
   font-weight: 550;
@@ -1462,4 +1462,20 @@ tr.current td {
 }
 .full-row {
   grid-column: 1 / -1;
+}
+
+/* Right-to-left languages (Arabic): layout uses logical properties; arrows mirror. */
+[dir="rtl"] .icon-directional,
+[dir="rtl"] .back-arrow {
+  transform: scaleX(-1);
+}
+.back-arrow {
+  display: inline-block;
+}
+/* Amounts, phone numbers and references stay left-to-right inside Arabic text. */
+[dir="rtl"] input[inputmode="tel"],
+[dir="rtl"] input[inputmode="numeric"],
+[dir="rtl"] input[inputmode="decimal"] {
+  direction: ltr;
+  text-align: end;
 }

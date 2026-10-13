@@ -1,8 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
+  bidiSafe,
   formatAmount,
   intlTag,
   isLocale,
+  isRtl,
   negotiateLocale,
   t as translate,
   type Locale,
@@ -27,6 +29,8 @@ export interface I18n {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   t: (key: MessageKey, params?: MsgParams) => string;
+  /** Makes raw text (phone numbers) display correctly in the current direction. */
+  bidi: (text: string) => string;
   /** Amount in minor units, formatted for the current language. */
   money: (amountMinor: number, currency: string) => string;
   date: (iso: string, withTime?: boolean) => string;
@@ -40,6 +44,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setRequestLocale(locale);
     document.documentElement.lang = locale;
+    document.documentElement.dir = isRtl(locale) ? "rtl" : "ltr";
     try {
       localStorage.setItem(STORAGE_KEY, locale);
     } catch {
@@ -55,6 +60,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       locale,
       setLocale,
       t: (key, params) => translate(locale, key, params),
+      bidi: (text) => bidiSafe(locale, text),
       money: (amountMinor, currency) => formatAmount(amountMinor, currency, tag),
       date: (iso, withTime = false) =>
         new Date(iso).toLocaleString(safeTag, withTime ? { dateStyle: "medium", timeStyle: "short" } : { dateStyle: "medium" }),

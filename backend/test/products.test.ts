@@ -358,8 +358,35 @@ describe("Central Africa (CEMAC)", () => {
     const h = harness();
     const dial = (phoneNumber: string) => request(h.app).post("/v1/ussd/simulator").type("form").send({ sessionId: `sess-${phoneNumber.slice(1)}`, phoneNumber, text: "" });
     expect((await dial("+237670000401")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
-    for (const phone of ["+23670000402", "+23566000403", "+242060000404", "+240222000405", "+24106000406", "+243810000407"]) {
-      expect((await dial(phone)).text).toMatch(/^CON /);
-    }
+    expect((await dial("+23670000402")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
+    expect((await dial("+23566000403")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. العربية\n3. English");
+    expect((await dial("+242060000404")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. Lingála\n3. English");
+    expect((await dial("+240222000405")).text).toBe("CON ¡Bienvenido a Benki!\n1. Español\n2. Français\n3. English");
+    expect((await dial("+24106000406")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
+    expect((await dial("+243810000407")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. Lingála\n3. Kiswahili\n4. English");
+  });
+
+  it("keeps the language a new customer picked during onboarding instead of the country default", async () => {
+    const h = harness();
+    const signUp = async (phoneNumber: string, locale?: string) => {
+      const sent = await request(h.app).post("/v1/auth/otp/send").send({ phoneNumber, countryCode: "CM" });
+      const device = `dev-${phoneNumber.slice(1)}`;
+      const login = await request(h.app).post("/v1/auth/otp/verify").set("x-device-id", device).send({ phoneNumber, otp: sent.body.devOtp, locale });
+      return (await request(h.app).get("/v1/me").set("x-device-id", device).set("authorization", `Bearer ${login.body.token}`)).body.user;
+    };
+    expect((await signUp("+237670000501", "en")).locale).toBe("en");
+    expect((await signUp("+237670000502")).locale).toBe("fr");
+  });
+
+  it("registers a Chadian customer in Arabic and keeps amounts in Latin digits", async () => {
+    const h = harness();
+    const phoneNumber = "+23566000411";
+    const dial = (sessionId: string, text: string) => request(h.app).post("/v1/ussd/simulator").type("form").send({ sessionId, phoneNumber, text });
+    expect((await dial("td-1", "2")).text).toBe("CON أنشئ حسابك في ثوانٍ.\nاختر رقمًا سريًا من 4 أرقام:");
+    await dial("td-1", "2*4826*4826");
+    expect((await dial("td-2", "")).text).toMatch(/^CON Benki\n1\. الرصيد\n/);
+    expect((await dial("td-3", "1*4826")).text).toMatch(/^END المتاح: 0 XAF\n/);
+    // The language menu lists the market's languages, not all of them, to fit one screen.
+    expect((await dial("td-4", "6")).text).toBe("CON اختر اللغة:\n1. English\n2. Français\n3. العربية");
   });
 });

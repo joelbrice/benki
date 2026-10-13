@@ -1,10 +1,10 @@
 # Benki — Bank Without Borders
 
-Benki is an African-focused "banking without borders" platform: simple, safe financial access for rural and underserved users across mobile money, agents, banks, local billers, merchants and cross-border corridors — in **English, French, Kiswahili, Hausa, Yorùbá and Wolof**, on smartphones, the web, and any phone over USSD.
+Benki is an African-focused "banking without borders" platform: simple, safe financial access for rural and underserved users across mobile money, agents, banks, local billers, merchants and cross-border corridors — in **English, French, Spanish, Arabic, Kiswahili, Lingala, Hausa, Yorùbá and Wolof**, on smartphones, the web, and any phone over USSD.
 
-The repository contains a working sandbox of the whole platform, modeled on five markets from `docs/COUNTRY_COMPLIANCE_MATRIX.md` (Kenya, Ghana, Nigeria, Tanzania, Senegal):
+The repository contains a working sandbox of the whole platform, modeled on twelve markets from `docs/COUNTRY_COMPLIANCE_MATRIX.md`: Kenya, Ghana, Nigeria, Tanzania and Senegal, the whole CEMAC zone (Cameroon, Central African Republic, Chad, Republic of the Congo, Equatorial Guinea, Gabon) and DR Congo:
 
-- **`backend/`** — the finance core: an append-only double-entry ledger on SQLite, AML/fraud risk engine, compliance case management, payments orchestration across every rail, and a back-office API. 67 automated tests.
+- **`backend/`** — the finance core: an append-only double-entry ledger on SQLite, AML/fraud risk engine, compliance case management, payments orchestration across every rail, and a back-office API. 78 automated tests.
 - **`web/`** — the customer web app plus a compliance & operations console at `#/admin`.
 - **`mobile/`** — the Expo (iOS + Android) customer app.
 - **`packages/shared/`** — one set of API contracts, market catalog, tier limits, fee schedule and translation catalogs used by all three.
@@ -34,7 +34,8 @@ Every control and where it's enforced is listed in **[`docs/PLATFORM_GUARDRAILS.
 | Savings groups (chama / tontine / susu) | Pooled savings; payouts only after a member quorum, and nobody can approve a payout to themselves. |
 | Nano-loans | Sized from your own income history; flat fee, APR and due date shown up front; explicit consent; never offered to accounts under investigation. |
 | USSD (`*384*236#`) | Register, check balance, send, buy airtime, withdraw cash and get a mini statement from any phone. Same PIN, limits and AML controls as the apps. |
-| Six languages | English, Français, Kiswahili, Hausa, Yorùbá, Wolof — in the apps, API messages, notifications/SMS and USSD. New customers start in their market's language. |
+| Nine languages | English, Français, Español, العربية (right-to-left), Kiswahili, Lingála, Hausa, Yorùbá, Wolof — in the apps, API messages, notifications/SMS and USSD. New customers start in their market's language (French across CEMAC, Spanish in Equatorial Guinea) or the one they pick during sign-up; Cameroon offers French and English, Chad French and Arabic, the Congos Lingala. |
+| Central Africa (CEMAC) | Transfers between Cameroon, CAR, Chad, Congo, Equatorial Guinea and Gabon go at par in XAF (no exchange margin, 0.5% regional fee). Under BEAC exchange control, sending outside the zone needs Tier 2 and dollar/euro pockets are not offered. MTN MoMo, Orange Money, Airtel Money, Moov Money, GETESA and Muni Dinero; RIB bank accounts. |
 | Fee transparency | Every payment shows fee and total before the PIN prompt (`GET /v1/pricing/quote`). |
 
 ## What staff can do (back office, `#/admin`)
@@ -96,7 +97,7 @@ Deterministic test triggers:
 
 ## What this is not (yet)
 
-Provider adapters, the watchlist, telco signals and FX rates are sandbox stand-ins behind real interfaces (`backend/src/services/providers.ts`); production needs licensed integrations, a screening vendor with list refresh, an SMS gateway, a rates feed, a managed database with backups, and HSM/KMS-held keys. Limits, fees and the market catalog are illustrative — real values come from the compliance matrix per launch. The Kiswahili, Hausa, Yorùbá and Wolof translations should be reviewed by native-speaking financial-services translators before launch (every key and placeholder is checked automatically; wording quality is not). Card issuing and inbound diaspora remittances need a licensed partner and are not built. See `docs/SOLUTION_ARCHITECTURE.md` for the target architecture.
+Provider adapters, the watchlist, telco signals and FX rates are sandbox stand-ins behind real interfaces (`backend/src/services/providers.ts`); production needs licensed integrations, a screening vendor with list refresh, an SMS gateway, a rates feed, a managed database with backups, and HSM/KMS-held keys. Limits, fees and the market catalog are illustrative — real values come from the compliance matrix per launch. The Spanish, Arabic, Kiswahili, Lingala, Hausa, Yorùbá and Wolof translations should be reviewed by native-speaking financial-services translators before launch (every key and placeholder is checked automatically; wording quality is not). Sango (CAR), Fulfulde and Cameroonian Pidgin are planned once reviewed translations exist; Arabic USSD screens are sent as UCS-2, so the aggregator must support it. Card issuing and inbound diaspora remittances need a licensed partner and are not built. See `docs/SOLUTION_ARCHITECTURE.md` for the target architecture.
 
 ## Documentation
 
