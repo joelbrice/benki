@@ -17,6 +17,8 @@ This matrix is a governance artifact and must be maintained per country launch.
 | Gabon (CEMAC) | As Cameroon | Tier 0/1/2 | ANIF Gabon | As above | As above | Airtel Money, Moov Money | TBD | As Cameroon |
 | DR Congo | E-money institution licensed by the Banque Centrale du Congo (example) | Tier 0/1/2 | CENAREF | National constraints | BCC consumer protection | M-Pesa, Orange Money, Airtel Money | TBD | Corridor-by-corridor (CDF; USD widely used — needs counsel) |
 
+The 42 planned markets are listed with their supervisor, currency and launch stage in [`MARKET_EXPANSION.md`](MARKET_EXPANSION.md); each gets a full row here as it is prepared for launch.
+
 CEMAC rows are a working assumption for product design, not legal advice: confirm licences, passporting, limits and FIU reporting formats with counsel in each country before launch.
 
 ## Required Fields Per Country

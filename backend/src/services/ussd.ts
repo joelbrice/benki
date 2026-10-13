@@ -1,5 +1,6 @@
 import {
   AFRICAN_COUNTRIES,
+  airtimeNetworks,
   COUNTRY_BY_CODE,
   customerFeeMinor,
   formatAmount,
@@ -51,8 +52,10 @@ const con = (lines: string[]) => `CON ${lines.join("\n")}`;
 const end = (lines: string[]) => `END ${lines.join("\n")}`;
 const PIN_RE = /^\d{4,6}$/;
 
+/** The launched market a number belongs to; planned markets aren't served yet. */
 function countryForPhone(phone: string) {
-  return AFRICAN_COUNTRIES.find((c) => phone.startsWith(c.callingCode));
+  const country = AFRICAN_COUNTRIES.find((c) => phone.startsWith(c.callingCode));
+  return country?.launch === "LIVE" ? country : undefined;
 }
 
 /** Accepts local ("0712 345 678") or international numbers; returns E.164 or null. */
@@ -242,7 +245,7 @@ async function sendMoney(s: Screen, user: UserRow, sessionId: string, rest: stri
 }
 
 async function airtime(s: Screen, user: UserRow, sessionId: string, rest: string[]): Promise<string> {
-  const networks = COUNTRY_BY_CODE[user.country_code].mobileMoneyProviders;
+  const networks = airtimeNetworks(COUNTRY_BY_CODE[user.country_code]);
   const currency = currencyOf(user);
   const [networkInput, amountInput, pin] = rest;
   if (rest.length === 0) return con([s.tr("ussd.chooseNetwork"), ...networks.map((n, i) => `${i + 1}. ${n.label}`)]);

@@ -52,6 +52,12 @@ export const uiAr: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "إظهار الرصيد",
   "common.hideBalance": "إخفاء الرصيد",
 
+  "region.CENTRAL": "وسط أفريقيا",
+  "region.WEST": "غرب أفريقيا",
+  "region.EAST": "شرق أفريقيا",
+  "region.SOUTHERN": "الجنوب الأفريقي",
+  "region.NORTH": "شمال أفريقيا",
+
   "tier.TIER_0": "أساسي",
   "tier.TIER_1": "موثّق",
   "tier.TIER_2": "مميّز",
@@ -84,6 +90,10 @@ export const uiAr: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "موظف؟ افتح لوحة الإدارة",
   "onboarding.ussd": "لا تملك هاتفًا ذكيًا؟ اطلب {code} من أي هاتف",
   "onboarding.ussdDemo": "جرّب محاكي USSD",
+  "onboarding.liveNow": "متاح الآن",
+  "onboarding.comingSoon": "قريبًا",
+  "onboarding.comingSoonLine": "قريبًا في {count} دولة أفريقية أخرى.",
+  "onboarding.notLaunched": "Benki غير متاح بعد في {country}. اختر بلدًا متاحًا أو عد قريبًا.",
 
   "setPin.title": "أنشئ رقمك السري للمعاملات",
   "setPin.body": "ستُدخل هذا الرقم السري لاعتماد كل دفعة. تجنّب تواريخ الميلاد والأرقام المكررة (1111) أو المتسلسلة (1234).",
@@ -157,6 +167,7 @@ export const uiAr: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "إرسال إلى {provider}",
   "send.toBank": "إرسال إلى {bank}",
   "send.toCountry": "إرسال إلى {country}",
+  "send.tierEdd": "تتطلب التحويلات المتعلقة بـ {country} توثيقًا كاملًا (المستوى 2). قم بالترقية من الملف الشخصي.",
   "send.accountName": "اسم الحساب",
   "send.account": "الحساب",
 

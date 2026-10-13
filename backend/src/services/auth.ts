@@ -32,6 +32,8 @@ function otpHash(ctx: AppContext, phone: string, code: string) {
 export function requestOtp(ctx: AppContext, phone: string, countryCode: string): OtpSendResponse {
   const country = COUNTRY_BY_CODE[countryCode];
   if (!country) throw badRequest(msg("err.unsupportedCountry"));
+  // Every African country has a module, but only launched markets take customers.
+  if (country.launch !== "LIVE") throw badRequest(msg("err.marketNotLaunched", { country: msg(`country.${country.code}` as MessageKey) }));
   if (!phone.startsWith(country.callingCode)) {
     throw badRequest(msg("err.phonePrefix", { country: msg(`country.${country.code}` as MessageKey), prefix: country.callingCode }));
   }

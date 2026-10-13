@@ -10,6 +10,7 @@ import { yo } from "./yo";
 import { es } from "./es";
 import { ar } from "./ar";
 import { ln } from "./ln";
+import { pt } from "./pt";
 
 export * from "./locales";
 
@@ -18,7 +19,7 @@ export type MessageKey = keyof typeof en;
 /** Every locale must translate every key (enforced by the type and by tests). */
 export type Catalog = Record<MessageKey, string>;
 
-export const CATALOGS: Record<Locale, Catalog> = { en, fr, sw, ha, yo, wo, es, ar, ln };
+export const CATALOGS: Record<Locale, Catalog> = { en, fr, sw, ha, yo, wo, es, ar, ln, pt };
 
 /** An amount to be formatted in the reader's locale. */
 export interface MoneyParam {

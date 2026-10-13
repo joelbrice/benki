@@ -1,10 +1,16 @@
-// Currencies with no minor subdivision in everyday use. Amounts everywhere in
-// the platform are integer minor units; these helpers are the only place that
-// converts to and from human-readable major units.
-const ZERO_DECIMAL_CURRENCIES = new Set(["XOF", "XAF", "UGX", "RWF", "CDF"]);
+// Amounts everywhere in the platform are integer minor units; these helpers
+// are the only place that converts to and from human-readable major units.
+// Most currencies use 2 decimals. These have none in everyday use (ISO 4217
+// or market practice), and the Tunisian and Libyan dinars use 3.
+const ZERO_DECIMAL_CURRENCIES = new Set(["XOF", "XAF", "UGX", "RWF", "CDF", "BIF", "DJF", "GNF", "KMF", "MGA"]);
+const THREE_DECIMAL_CURRENCIES = new Set(["TND", "LYD"]);
+
+export function currencyDecimals(currency: string): number {
+  return ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : THREE_DECIMAL_CURRENCIES.has(currency) ? 3 : 2;
+}
 
 export function minorUnitsPerMajor(currency: string): number {
-  return ZERO_DECIMAL_CURRENCIES.has(currency) ? 1 : 100;
+  return 10 ** currencyDecimals(currency);
 }
 
 const formatters = new Map<string, Intl.NumberFormat>();
@@ -24,7 +30,7 @@ function numberFormat(locale: string, decimals: number): Intl.NumberFormat {
 /** "1,250.50 KES" in English, "1 250,50 KES" in French — the currency code always follows. */
 export function formatAmount(amountMinor: number, currency: string, locale = "en-US"): string {
   const scale = minorUnitsPerMajor(currency);
-  const decimals = scale === 1 ? 0 : 2;
+  const decimals = currencyDecimals(currency);
   // Normalize narrow/no-break spaces so the output is predictable in SMS and USSD.
   return `${numberFormat(locale, decimals).format(amountMinor / scale).replace(/[\u202f\u00a0]/g, " ")} ${currency}`;
 }
@@ -41,9 +47,10 @@ export function normalizeDigits(input: string): string {
 /**
  * Parses a user-typed major amount into minor units, or null if invalid.
  * Accepts English ("1,250.50") and French ("1 250,50") conventions: a single
- * "," or "." followed by one or two final digits is the decimal mark; any
- * other separators are thousands separators. Zero-decimal currencies (XOF)
- * treat every separator as a thousands separator.
+ * "," or "." followed by up to the currency's number of decimals is the
+ * decimal mark; any other separators are thousands separators. Zero-decimal
+ * currencies (XOF) treat every separator as a thousands separator, and for
+ * 3-decimal currencies (TND) a lone "1,250" is read as one thousand two hundred.
  */
 export function parseMajorToMinor(input: string, currency: string): number | null {
   const scale = minorUnitsPerMajor(currency);
@@ -51,22 +58,24 @@ export function parseMajorToMinor(input: string, currency: string): number | nul
   if (!/^\d[\d.,]*$/.test(compact)) return null;
   let whole = compact;
   let fraction = "";
-  const decimal = compact.match(/^(.*\d)[.,](\d{1,2})$/);
+  const maxDecimals = currencyDecimals(currency);
+  const decimal = maxDecimals > 0 ? compact.match(new RegExp(`^(.*\\d)[.,](\\d{1,${maxDecimals}})$`)) : null;
   // The decimal mark must differ from every thousands separator before it.
   const decimalMark = decimal ? compact[decimal[1].length] : "";
-  if (scale !== 1 && decimal && !decimal[1].includes(decimalMark)) {
+  // "1,250" is ambiguous for 3-decimal currencies; thousands grouping wins.
+  const groupingOnly = decimal && decimal[2].length === 3 && /^\d{1,3}$/.test(decimal[1]);
+  if (decimal && !groupingOnly && !decimal[1].includes(decimalMark)) {
     whole = decimal[1];
     fraction = decimal[2];
   }
   // Remaining separators must be thousands groups of exactly three digits.
   if (/[.,]/.test(whole) && !/^\d{1,3}([.,]\d{3})+$/.test(whole)) return null;
   whole = whole.replace(/[.,]/g, "");
-  const maxDecimals = scale === 1 ? 0 : 2;
   const minor = Number(whole) * scale + Number(fraction.padEnd(maxDecimals, "0") || "0");
   return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
 }
 
 export function minorToMajorString(amountMinor: number, currency: string): string {
   const scale = minorUnitsPerMajor(currency);
-  return scale === 1 ? String(amountMinor) : (amountMinor / scale).toFixed(2);
+  return scale === 1 ? String(amountMinor) : (amountMinor / scale).toFixed(currencyDecimals(currency));
 }

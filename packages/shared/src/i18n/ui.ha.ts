@@ -49,6 +49,12 @@ export const uiHa: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Nuna kuɗi",
   "common.hideBalance": "Ɓoye kuɗi",
 
+  "region.CENTRAL": "Afirka ta Tsakiya",
+  "region.WEST": "Afirka ta Yamma",
+  "region.EAST": "Afirka ta Gabas",
+  "region.SOUTHERN": "Kudancin Afirka",
+  "region.NORTH": "Arewacin Afirka",
+
   "tier.TIER_0": "Na farko",
   "tier.TIER_1": "An tabbatar",
   "tier.TIER_2": "Na musamman",
@@ -80,6 +86,10 @@ export const uiHa: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Ma'aikaci? Buɗe dandalin ofis",
   "onboarding.ussd": "Ba ka da wayar zamani? Kira {code} da kowace waya",
   "onboarding.ussdDemo": "Gwada na'urar kwaikwayon USSD",
+  "onboarding.liveNow": "Akwai yanzu",
+  "onboarding.comingSoon": "Yana zuwa nan ba da daɗewa ba",
+  "onboarding.comingSoonLine": "Yana zuwa a ƙarin ƙasashen Afirka {count}.",
+  "onboarding.notLaunched": "Benki bai buɗe a {country} ba tukuna. Zaɓi ƙasar da ake da ita, ko ka dawo nan gaba.",
 
   "setPin.title": "Ƙirƙiri PIN ɗinka na ma'amala",
   "setPin.body": "Za ka shigar da wannan PIN don amincewa da kowane biya. Guji ranar haihuwa, lambobi masu maimaici (1111) ko jerin lambobi (1234).",
@@ -151,6 +161,7 @@ export const uiHa: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Tura zuwa {provider}",
   "send.toBank": "Tura zuwa {bank}",
   "send.toCountry": "Tura zuwa {country}",
+  "send.tierEdd": "Tura kuɗi da ya shafi {country} yana buƙatar cikakken tabbatarwa (Mataki na 2). Haura a Bayanina.",
   "send.accountName": "Sunan asusu",
   "send.account": "Asusu",
 

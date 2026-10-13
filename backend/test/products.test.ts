@@ -361,7 +361,7 @@ describe("Central Africa (CEMAC)", () => {
     expect((await dial("+23670000402")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
     expect((await dial("+23566000403")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. العربية\n3. English");
     expect((await dial("+242060000404")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. Lingála\n3. English");
-    expect((await dial("+240222000405")).text).toBe("CON ¡Bienvenido a Benki!\n1. Español\n2. Français\n3. English");
+    expect((await dial("+240222000405")).text).toBe("CON ¡Bienvenido a Benki!\n1. Español\n2. Français\n3. Português\n4. English");
     expect((await dial("+24106000406")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. English");
     expect((await dial("+243810000407")).text).toBe("CON Bienvenue sur Benki !\n1. Français\n2. Lingála\n3. Kiswahili\n4. English");
   });

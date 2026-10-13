@@ -1,4 +1,5 @@
 import {
+  type MessageKey,
   convertMinor,
   corridorPolicy,
   COUNTRY_BY_CODE,
@@ -28,10 +29,17 @@ export function createFxQuote(ctx: AppContext, user: UserRow, destinationCountry
     throw forbidden(msg("err.tierRequired"));
   }
   const destination = COUNTRY_BY_CODE[destinationCountryCode];
-  if (!destination) throw badRequest(msg("err.corridorUnavailable"));
+  // Transfers only go to launched markets, where a local partner pays out.
+  if (!destination || destination.launch !== "LIVE") throw badRequest(msg("err.corridorUnavailable"));
   if (destination.code === user.country_code) throw badRequest(msg("err.useLocal"));
   const policy = corridorPolicy(user.country_code, destination.code);
-  if (!tierAtLeast(user.kyc_tier, policy.minTier)) throw forbidden(msg("err.cemacOutbound"));
+  if (!tierAtLeast(user.kyc_tier, policy.minTier)) {
+    if (policy.reason === "ENHANCED_DUE_DILIGENCE") {
+      const flagged = COUNTRY_BY_CODE[user.country_code].enhancedDueDiligence ? user.country_code : destination.code;
+      throw forbidden(msg("err.eddCorridor", { country: msg(`country.${flagged}` as MessageKey) }));
+    }
+    throw forbidden(msg("err.cemacOutbound"));
+  }
 
   const sendCurrency = currencyOf(user);
   const receiveCurrency = destination.currency;

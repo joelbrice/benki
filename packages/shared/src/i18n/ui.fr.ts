@@ -49,6 +49,12 @@ export const uiFr: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Afficher le solde",
   "common.hideBalance": "Masquer le solde",
 
+  "region.CENTRAL": "Afrique centrale",
+  "region.WEST": "Afrique de l'Ouest",
+  "region.EAST": "Afrique de l'Est",
+  "region.SOUTHERN": "Afrique australe",
+  "region.NORTH": "Afrique du Nord",
+
   "tier.TIER_0": "Basique",
   "tier.TIER_1": "Vérifié",
   "tier.TIER_2": "Premium",
@@ -80,6 +86,10 @@ export const uiFr: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Personnel ? Ouvrir la console back-office",
   "onboarding.ussd": "Pas de smartphone ? Composez {code} sur n'importe quel téléphone",
   "onboarding.ussdDemo": "Essayer le simulateur USSD",
+  "onboarding.liveNow": "Disponible maintenant",
+  "onboarding.comingSoon": "Bientôt disponible",
+  "onboarding.comingSoonLine": "Bientôt dans {count} autres pays africains.",
+  "onboarding.notLaunched": "Benki n'est pas encore ouvert dans ce pays ({country}). Choisissez un pays disponible ou revenez bientôt.",
 
   "setPin.title": "Créez votre code PIN de transaction",
   "setPin.body": "Vous saisirez ce PIN pour valider chaque paiement. Évitez les dates de naissance, les chiffres répétés (1111) ou les suites (1234).",
@@ -151,6 +161,7 @@ export const uiFr: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Envoyer vers {provider}",
   "send.toBank": "Envoyer vers {bank}",
   "send.toCountry": "Envoyer vers : {country}",
+  "send.tierEdd": "Les transferts impliquant ce pays ({country}) exigent une vérification complète (niveau 2). Passez au niveau 2 dans Profil.",
   "send.accountName": "Nom du titulaire",
   "send.account": "Compte",
 

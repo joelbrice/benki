@@ -1,4 +1,4 @@
-import { AFRICAN_COUNTRIES, minorUnitsPerMajor } from "@benki/shared";
+import { LIVE_COUNTRIES, minorUnitsPerMajor } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
 import { one, run } from "../db/query";
@@ -16,7 +16,8 @@ const AGENT_OPENING_FLOAT_MAJOR = 50_000_000;
  */
 export function seedMarkets(ctx: AppContext) {
   withTx(ctx.db, () => {
-    for (const country of AFRICAN_COUNTRIES) {
+    // Planned markets get their agents and merchants when they launch.
+    for (const country of LIVE_COUNTRIES) {
       const issuance = systemAccount(ctx, "ISSUANCE", country.currency);
       for (const agent of country.agents) {
         const id = agentFloatAccountId(agent.id);

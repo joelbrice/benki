@@ -52,6 +52,12 @@ export const uiLn: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Lakisá solde",
   "common.hideBalance": "Bombá solde",
 
+  "region.CENTRAL": "Afríka ya Káti",
+  "region.WEST": "Afríka ya Wɛsti",
+  "region.EAST": "Afríka ya Ɛsti",
+  "region.SOUTHERN": "Afríka ya Sidi",
+  "region.NORTH": "Afríka ya Nɔrdi",
+
   "tier.TIER_0": "Ya ebandeli",
   "tier.TIER_1": "Endimisami",
   "tier.TIER_2": "Premium",
@@ -84,6 +90,10 @@ export const uiLn: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Mosali? Fungolá console ya back-office",
   "onboarding.ussd": "Smartphone te? Benga {code} na telefone nyonso",
   "onboarding.ussdDemo": "Meká simulateur ya USSD",
+  "onboarding.liveNow": "Ezali sikawa",
+  "onboarding.comingSoon": "Ekoya noki",
+  "onboarding.comingSoonLine": "Ekoya noki na mikili mosusu {count} ya Afríka.",
+  "onboarding.notLaunched": "Benki efungwami naino te na {country}. Pona mboka oyo ezali, to zongá noki.",
 
   "setPin.title": "Salá PIN na yo ya mombongo",
   "setPin.body": "Okokoma PIN oyo mpo na kondima lifuti nyonso. Salelá mokolo ya mbotama te, nimero oyo ezongelami te (1111) to oyo elandani te (1234).",
@@ -157,6 +167,7 @@ export const uiLn: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Tinda na {provider}",
   "send.toBank": "Tinda na {bank}",
   "send.toCountry": "Tinda na {country}",
+  "send.tierEdd": "Botindi oyo etali {country} esengi bondimisi mobimba (Tier 2). Matá niveau na Profil.",
   "send.accountName": "Nkombo ya compte",
   "send.account": "Compte",
 

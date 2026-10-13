@@ -18,6 +18,7 @@ import {
   type PaymentResponse,
   type RuleHit,
   type TransactionType,
+  airtimeNetworks,
 } from "@benki/shared";
 import type { AppContext } from "../context";
 import { withTx } from "../db/database";
@@ -494,7 +495,7 @@ export function draftAirtime(
   input: { providerId: string; amountMinor: number; phoneNumber?: string },
   deviceId: string | null,
 ): PaymentDraft {
-  const provider = country(user).mobileMoneyProviders.find((p) => p.id === input.providerId);
+  const provider = airtimeNetworks(country(user)).find((p) => p.id === input.providerId);
   if (!provider) throw badRequest(msg("err.chooseNetwork"));
   const phone = input.phoneNumber ?? user.phone;
   assertLocalPhone(user, phone);

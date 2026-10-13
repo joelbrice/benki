@@ -49,6 +49,12 @@ export const uiYo: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Fi owó hàn",
   "common.hideBalance": "Fi owó pamọ́",
 
+  "region.CENTRAL": "Àárín Áfíríkà",
+  "region.WEST": "Ìwọ̀ Oòrùn Áfíríkà",
+  "region.EAST": "Ìlà Oòrùn Áfíríkà",
+  "region.SOUTHERN": "Gúúsù Áfíríkà",
+  "region.NORTH": "Àríwá Áfíríkà",
+
   "tier.TIER_0": "Ìpìlẹ̀",
   "tier.TIER_1": "A ti dájú",
   "tier.TIER_2": "Ìpele gíga",
@@ -80,6 +86,10 @@ export const uiYo: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Òṣìṣẹ́? Ṣí pẹpẹ ọ́fíìsì",
   "onboarding.ussd": "Kò ní fóònù ìgbàlódé? Pe {code} lórí fóònù èyíkéyìí",
   "onboarding.ussdDemo": "Gbìyànjú àfarawé USSD",
+  "onboarding.liveNow": "Ó wà báyìí",
+  "onboarding.comingSoon": "Ó ń bọ̀ láìpẹ́",
+  "onboarding.comingSoonLine": "Ó ń bọ̀ sí orílẹ̀-èdè Áfíríkà {count} míràn láìpẹ́.",
+  "onboarding.notLaunched": "Benki kò tíì ṣí sílẹ̀ ní {country}. Yan orílẹ̀-èdè tó wà, tàbí padà wá láìpẹ́.",
 
   "setPin.title": "Ṣẹ̀dá PIN ìdúnàádúrà rẹ",
   "setPin.body": "Ìwọ yóò tẹ PIN yìí láti fọwọ́ sí gbogbo ìsanwó. Yẹra fún ọjọ́ ìbí, nọ́mbà tó ń tún ara wọn ṣe (1111) tàbí tó tẹ̀léra (1234).",
@@ -151,6 +161,7 @@ export const uiYo: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Fi ránṣẹ́ sí {provider}",
   "send.toBank": "Fi ránṣẹ́ sí {bank}",
   "send.toCountry": "Fi ránṣẹ́ sí {country}",
+  "send.tierEdd": "Ìfiránṣẹ́ tó kan {country} nílò ìdánilójú kíkún (Ìpele 2). Gòkè nínú Àkọsílẹ̀ mi.",
   "send.accountName": "Orúkọ àkáǹtì",
   "send.account": "Àkáǹtì",
 

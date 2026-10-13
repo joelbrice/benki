@@ -49,6 +49,12 @@ export const uiWo: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Wone solde",
   "common.hideBalance": "Nëbb solde",
 
+  "region.CENTRAL": "Diggu Afrig",
+  "region.WEST": "Sowu Afrig",
+  "region.EAST": "Penku Afrig",
+  "region.SOUTHERN": "Bëj-saalumu Afrig",
+  "region.NORTH": "Bëj-gànnaaru Afrig",
+
   "tier.TIER_0": "Njëlbéen",
   "tier.TIER_1": "Dëggal nañu ko",
   "tier.TIER_2": "Premium",
@@ -80,6 +86,10 @@ export const uiWo: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Liggéeykat? Ubbil console back-office bi",
   "onboarding.ussd": "Amuloo smartphone? Wooteel {code} ak bépp telefon",
   "onboarding.ussdDemo": "Jéemal simulateur USSD bi",
+  "onboarding.liveNow": "Am na léegi",
+  "onboarding.comingSoon": "Dina ñëw",
+  "onboarding.comingSoonLine": "Dina ñëw ci {count} yeneen réewi Afrig.",
+  "onboarding.notLaunched": "Benki ubbeegul ci {country} ba léegi. Tànnal réew bu am, walla nga délusi ci kanam.",
 
   "setPin.title": "Defal sa PIN bu transaction",
   "setPin.body": "Dinga bind PIN bii ngir dëggal bépp fey. Bul jëfandikoo bisu juddu, siifar yu niroo (1111) walla yu toppante (1234).",
@@ -151,6 +161,7 @@ export const uiWo: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Yónnee ci {provider}",
   "send.toBank": "Yónnee ci {bank}",
   "send.toCountry": "Yónnee ci {country}",
+  "send.tierEdd": "Yónnee yu jëm walla jóge {country} dafay soxla dëggal bu mat (tolluwaay 2). Yéegal ci Sama xët.",
   "send.accountName": "Turu kont bi",
   "send.account": "Kont",
 

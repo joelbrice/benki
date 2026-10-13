@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { AFRICAN_COUNTRIES, COUNTRY_BY_CODE, DEFAULT_COUNTRY_CODE, DEFAULT_LOCALE_BY_COUNTRY, USSD_SHORT_CODE, type MessageKey } from "@benki/shared";
+import { COUNTRY_BY_CODE, LIVE_COUNTRIES, PLANNED_COUNTRIES, DEFAULT_COUNTRY_CODE, DEFAULT_LOCALE_BY_COUNTRY, USSD_SHORT_CODE, type MessageKey } from "@benki/shared";
 import { authApi, type CustomerApi } from "../api";
 import { Banner, Card, ChipSelect, Field, GhostButton, Icon, LanguagePicker, Muted, PinField, PrimaryButton, Title, useAction } from "../components/ui";
 import { useI18n } from "../i18n";
@@ -27,10 +27,11 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
             <View style={styles.pointIcon}>
               <Icon name={(["arrow-up-right", "globe", "shield"] as const)[i]} size={14} color="#fff" />
             </View>
-            <Text style={styles.pointText}>{t(k, { count: AFRICAN_COUNTRIES.length })}</Text>
+            <Text style={styles.pointText}>{t(k, { count: LIVE_COUNTRIES.length })}</Text>
           </View>
         ))}
-        <Text style={styles.flags}>{AFRICAN_COUNTRIES.map((c) => c.flag).join("  ")}</Text>
+        <Text style={styles.flags}>{LIVE_COUNTRIES.map((c) => c.flag).join("  ")}</Text>
+        <Text style={styles.soon}>{t("onboarding.comingSoonLine", { count: PLANNED_COUNTRIES.length })}</Text>
       </View>
 
       <Card>
@@ -47,7 +48,8 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
                 const native = DEFAULT_LOCALE_BY_COUNTRY[code] ?? "en";
                 if (!languageTouched && locale !== native) setLocale(native);
               }}
-              options={AFRICAN_COUNTRIES.map((c) => ({ id: c.code, label: `${c.flag} ${t(`country.${c.code}` as MessageKey)}` }))}
+              // Launched markets only, Cameroon first; the rest are listed under the hero as coming soon.
+              options={LIVE_COUNTRIES.map((c) => ({ id: c.code, label: `${c.flag} ${t(`country.${c.code}` as MessageKey)}` }))}
             />
             <Field label={t("onboarding.phone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
             <PrimaryButton
@@ -118,5 +120,6 @@ const styles = StyleSheet.create({
   point: { flexDirection: "row", alignItems: "center", gap: 10 },
   pointIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
   pointText: { color: "#fff", fontWeight: "600", flex: 1 },
-  flags: { fontSize: 22, marginTop: 4 },
+  flags: { fontSize: 22, marginTop: 4, lineHeight: 32 },
+  soon: { color: "rgba(255,255,255,0.8)", fontSize: 13 },
 });

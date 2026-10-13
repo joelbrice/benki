@@ -1285,7 +1285,13 @@ tr.current td {
   margin-top: auto;
   font-size: 1.6rem;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+.hero-soon {
+  margin: 0;
+  font-size: 0.86rem;
+  opacity: 0.8;
 }
 .auth-card {
   width: 100%;

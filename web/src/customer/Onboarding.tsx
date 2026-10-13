@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { AFRICAN_COUNTRIES, COUNTRY_BY_CODE, DEFAULT_COUNTRY_CODE, DEFAULT_LOCALE_BY_COUNTRY, USSD_SHORT_CODE, type MessageKey } from "@benki/shared";
+import { COUNTRY_BY_CODE, DEFAULT_COUNTRY_CODE, DEFAULT_LOCALE_BY_COUNTRY, LIVE_COUNTRIES, PLANNED_COUNTRIES, USSD_SHORT_CODE, type MessageKey } from "@benki/shared";
+import { CountryOptions } from "../ui/CountryOptions";
 import { authApi } from "../api";
 import { useI18n } from "../i18n";
 import { Banner, useAction } from "../ui/common";
@@ -38,15 +39,16 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
           {(["onboarding.point1", "onboarding.point2", "onboarding.point3"] as const).map((k, i) => (
             <li key={k}>
               <Icon name={(["send", "currencies", "shield"] as const)[i]} size={18} />
-              {t(k, { count: AFRICAN_COUNTRIES.length })}
+              {t(k, { count: LIVE_COUNTRIES.length })}
             </li>
           ))}
         </ul>
         <div className="hero-flags" aria-hidden="true">
-          {AFRICAN_COUNTRIES.map((c) => (
+          {LIVE_COUNTRIES.map((c) => (
             <span key={c.code}>{c.flag}</span>
           ))}
         </div>
+        <p className="hero-soon">{t("onboarding.comingSoonLine", { count: PLANNED_COUNTRIES.length })}</p>
       </section>
 
       <section className="auth-card">
@@ -59,11 +61,14 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
             <label htmlFor="country">
               {t("onboarding.country")}
               <select id="country" value={countryCode} onChange={(e) => changeCountry(e.target.value)}>
-                {AFRICAN_COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {t(`country.${c.code}` as MessageKey)} · {c.currency} · {c.callingCode}
-                  </option>
-                ))}
+                <CountryOptions countries={LIVE_COUNTRIES} detail />
+                <optgroup label={t("onboarding.comingSoon")}>
+                  {PLANNED_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code} disabled>
+                      {c.flag} {t(`country.${c.code}` as MessageKey)}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </label>
             <label htmlFor="phone">

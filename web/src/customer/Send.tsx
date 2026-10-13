@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  AFRICAN_COUNTRIES,
+  LIVE_COUNTRIES,
   banksFor,
   corridorPolicy,
   COUNTRY_BY_CODE,
@@ -12,6 +12,7 @@ import {
   type PurposeCode,
 } from "@benki/shared";
 import { useI18n } from "../i18n";
+import { CountryOptions } from "../ui/CountryOptions";
 import { AmountField, Banner, hintLabel, PageHeader, Segmented, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
 import type { Session } from "./session";
@@ -26,8 +27,9 @@ export function Send({ session }: { session: Session }) {
   const [phone, setPhone] = useState(country.callingCode);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0].id);
-  const otherCountries = AFRICAN_COUNTRIES.filter((c) => c.code !== country.code);
+  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0]?.id ?? "");
+  // Transfers go to launched markets only.
+  const otherCountries = LIVE_COUNTRIES.filter((c) => c.code !== country.code);
   const [destCountry, setDestCountry] = useState(otherCountries[0].code);
   const [purpose, setPurpose] = useState<PurposeCode>("FAMILY_SUPPORT");
   const banks = banksFor(country.code);
@@ -146,7 +148,7 @@ export function Send({ session }: { session: Session }) {
           onChange={switchMode}
           options={[
             { id: "benki", label: t("send.benki"), icon: "send" },
-            { id: "momo", label: t("send.momo"), icon: "phone" },
+            ...(country.mobileMoneyProviders.length ? [{ id: "momo" as const, label: t("send.momo"), icon: "phone" as const }] : []),
             { id: "bank", label: t("send.bank"), icon: "bank" },
             { id: "abroad", label: t("send.abroad"), icon: "plane" },
           ]}
@@ -236,11 +238,7 @@ export function Send({ session }: { session: Session }) {
                       setPhone(COUNTRY_BY_CODE[e.target.value].callingCode);
                     }}
                   >
-                    {otherCountries.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {countryName(c.code)} ({c.currency})
-                      </option>
-                    ))}
+                    <CountryOptions countries={otherCountries} />
                   </select>
                 </label>
                 {corridor.atPar && <p className="muted small full-row">{t("send.atPar")}</p>}
@@ -269,7 +267,9 @@ export function Send({ session }: { session: Session }) {
             )}
             {corridorBlocked && (
               <Banner tone="warn">
-                {t("err.cemacOutbound")}{" "}
+                {corridor.reason === "ENHANCED_DUE_DILIGENCE"
+                  ? t("send.tierEdd", { country: countryName(COUNTRY_BY_CODE[country.code].enhancedDueDiligence ? country.code : destCountry) })
+                  : t("err.cemacOutbound")}{" "}
                 <button className="link" onClick={() => session.go("profile")}>
                   {t("home.verifyNow")}
                 </button>

@@ -50,6 +50,12 @@ export const uiEn = {
   "common.showBalance": "Show balance",
   "common.hideBalance": "Hide balance",
 
+  "region.CENTRAL": "Central Africa",
+  "region.WEST": "West Africa",
+  "region.EAST": "East Africa",
+  "region.SOUTHERN": "Southern Africa",
+  "region.NORTH": "North Africa",
+
   "tier.TIER_0": "Basic",
   "tier.TIER_1": "Verified",
   "tier.TIER_2": "Premium",
@@ -82,6 +88,10 @@ export const uiEn = {
   "onboarding.staff": "Staff? Open the back-office console",
   "onboarding.ussd": "No smartphone? Dial {code} on any phone",
   "onboarding.ussdDemo": "Try the USSD simulator",
+  "onboarding.liveNow": "Available now",
+  "onboarding.comingSoon": "Coming soon",
+  "onboarding.comingSoonLine": "Coming soon to {count} more African countries.",
+  "onboarding.notLaunched": "Benki isn't open in {country} yet. Choose an available country, or check back soon.",
 
   "setPin.title": "Create your transaction PIN",
   "setPin.body": "You'll enter this PIN to approve every payment. Avoid birthdays, repeated digits (1111) or sequences (1234).",
@@ -155,6 +165,7 @@ export const uiEn = {
   "send.toProvider": "Send to {provider}",
   "send.toBank": "Send to {bank}",
   "send.toCountry": "Send to {country}",
+  "send.tierEdd": "Transfers involving {country} need full verification (Tier 2). Upgrade in Profile.",
   "send.accountName": "Account name",
   "send.account": "Account",
 

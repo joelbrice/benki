@@ -96,9 +96,9 @@ Verified in `payments.test.ts` and `backoffice.test.ts`.
 
 ## 10. Language and accessibility
 
-Nine languages: English, French, Spanish, Arabic, Kiswahili, Lingala, Hausa, Yorùbá and Wolof. All customer-facing text — app screens, API error messages, payment confirmations, notifications (also the SMS body) and every USSD screen — comes from typed catalogs in `packages/shared/src/i18n`. A test fails if any language misses a key or changes a placeholder (`i18n.test.ts`). Amounts are formatted per language and the apps accept both `1,250.50` and `1 250,50`, and Arabic-Indic digits. Arabic is laid out right-to-left on web and mobile, but amounts, PINs and phone numbers always use Latin digits so they read the same on every channel, and phone numbers are isolated so their `+` stays in front. USSD language menus only list the market's languages plus English and French, so a screen fits in one UCS-2 message. Compliance wording stays generic in every language (no tipping off). The mobile app gives every tab, tile and control an accessible name and hides decorative icons from screen readers.
+Ten languages: English, French, Portuguese, Spanish, Arabic, Kiswahili, Lingala, Hausa, Yorùbá and Wolof. All customer-facing text — app screens, API error messages, payment confirmations, notifications (also the SMS body) and every USSD screen — comes from typed catalogs in `packages/shared/src/i18n`. A test fails if any language misses a key or changes a placeholder (`i18n.test.ts`). Amounts are formatted per language and the apps accept both `1,250.50` and `1 250,50`, and Arabic-Indic digits. Arabic is laid out right-to-left on web and mobile, but amounts, PINs and phone numbers always use Latin digits so they read the same on every channel, and phone numbers are isolated so their `+` stays in front. USSD language menus only list the market's languages plus English and French, so a screen fits in one UCS-2 message. Compliance wording stays generic in every language (no tipping off). The mobile app gives every tab, tile and control an accessible name and hides decorative icons from screen readers.
 
-## 11. Central Africa (CEMAC) exchange control
+## 11. Markets, Central Africa (CEMAC) exchange control and due diligence
 
 | Control | Implementation | Verified by |
 | --- | --- | --- |
@@ -106,6 +106,10 @@ Nine languages: English, French, Spanish, Arabic, Kiswahili, Lingala, Hausa, Yor
 | Transfers from CEMAC to outside the zone need Tier 2 (BEAC exchange regulation: identified customer and documented purpose) | `corridorPolicy().minTier`, `err.cemacOutbound` | `products.test.ts` |
 | No foreign-currency (USD/EUR) pockets for CEMAC residents | `pocketsAllowed`, `services/pockets.ts` | `products.test.ts` |
 | XOF ↔ XAF is treated as a foreign exchange (different central banks), with the normal margin | `corridorPolicy` | `products.test.ts` |
+
+| Conflict-affected jurisdictions (flagged per country module) need Tier 2 on every corridor in or out | `enhancedDueDiligence`, `corridorPolicy`, `err.eddCorridor` | `countries.test.ts` |
+| Planned markets are closed: no sign-up, no transfers in, no USSD, no seeded agents | `services/auth.ts`, `services/fx.ts`, `services/ussd.ts`, `services/seed.ts` | `countries.test.ts` |
+| Every market has a rate, limits that rise by tier, partners, unique identifiers and an unambiguous dialling code | `packages/shared/src/countries/*` | `countries.test.ts` |
 
 These encode our reading of Règlement n°02/18/CEMAC/UMAC/CM (exchange control) and must be confirmed with local counsel before launch.
 

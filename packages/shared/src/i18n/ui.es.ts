@@ -52,6 +52,12 @@ export const uiEs: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Mostrar saldo",
   "common.hideBalance": "Ocultar saldo",
 
+  "region.CENTRAL": "África Central",
+  "region.WEST": "África Occidental",
+  "region.EAST": "África Oriental",
+  "region.SOUTHERN": "África Austral",
+  "region.NORTH": "Norte de África",
+
   "tier.TIER_0": "Básico",
   "tier.TIER_1": "Verificado",
   "tier.TIER_2": "Premium",
@@ -84,6 +90,10 @@ export const uiEs: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "¿Personal? Abra la consola de back-office",
   "onboarding.ussd": "¿Sin smartphone? Marque {code} desde cualquier teléfono",
   "onboarding.ussdDemo": "Probar el simulador USSD",
+  "onboarding.liveNow": "Disponible ahora",
+  "onboarding.comingSoon": "Próximamente",
+  "onboarding.comingSoonLine": "Próximamente en {count} países africanos más.",
+  "onboarding.notLaunched": "Benki todavía no está abierto en {country}. Elija un país disponible o vuelva pronto.",
 
   "setPin.title": "Cree su PIN de transacción",
   "setPin.body": "Introducirá este PIN para aprobar cada pago. Evite fechas de nacimiento, dígitos repetidos (1111) o secuencias (1234).",
@@ -157,6 +167,7 @@ export const uiEs: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Enviar a {provider}",
   "send.toBank": "Enviar a {bank}",
   "send.toCountry": "Enviar a {country}",
+  "send.tierEdd": "Las transferencias relacionadas con {country} requieren verificación completa (nivel 2). Actualice su nivel en Perfil.",
   "send.accountName": "Nombre de la cuenta",
   "send.account": "Cuenta",
 

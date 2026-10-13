@@ -1,3 +1,5 @@
+import { AFRICAN_COUNTRIES } from "./countries";
+
 export type KycTier = "TIER_0" | "TIER_1" | "TIER_2";
 
 export interface TierLimits {
@@ -12,44 +14,11 @@ export interface TierLimits {
 }
 
 // docs/COUNTRY_COMPLIANCE_MATRIX.md requires "maximum balance and transaction
-// limits by tier" per country. Figures are illustrative and in each country's
-// minor units (XOF has none; the others use 2 decimals).
-export const TIER_LIMITS: Record<string, Record<KycTier, TierLimits>> = {
-  KE: {
-    TIER_0: { perTransactionMinor: 200_000, dailyMinor: 500_000, monthlyMinor: 2_000_000, maxBalanceMinor: 1_000_000 },
-    TIER_1: { perTransactionMinor: 5_000_000, dailyMinor: 15_000_000, monthlyMinor: 50_000_000, maxBalanceMinor: 30_000_000 },
-    TIER_2: { perTransactionMinor: 50_000_000, dailyMinor: 100_000_000, monthlyMinor: 500_000_000, maxBalanceMinor: 300_000_000 },
-  },
-  GH: {
-    TIER_0: { perTransactionMinor: 15_000, dailyMinor: 50_000, monthlyMinor: 150_000, maxBalanceMinor: 100_000 },
-    TIER_1: { perTransactionMinor: 300_000, dailyMinor: 1_000_000, monthlyMinor: 3_000_000, maxBalanceMinor: 2_000_000 },
-    TIER_2: { perTransactionMinor: 3_000_000, dailyMinor: 10_000_000, monthlyMinor: 30_000_000, maxBalanceMinor: 20_000_000 },
-  },
-  NG: {
-    TIER_0: { perTransactionMinor: 2_000_000, dailyMinor: 5_000_000, monthlyMinor: 30_000_000, maxBalanceMinor: 30_000_000 },
-    TIER_1: { perTransactionMinor: 50_000_000, dailyMinor: 100_000_000, monthlyMinor: 1_000_000_000, maxBalanceMinor: 300_000_000 },
-    TIER_2: { perTransactionMinor: 500_000_000, dailyMinor: 1_000_000_000, monthlyMinor: 10_000_000_000, maxBalanceMinor: 5_000_000_000 },
-  },
-  TZ: {
-    TIER_0: { perTransactionMinor: 5_000_000, dailyMinor: 10_000_000, monthlyMinor: 50_000_000, maxBalanceMinor: 30_000_000 },
-    TIER_1: { perTransactionMinor: 100_000_000, dailyMinor: 300_000_000, monthlyMinor: 1_000_000_000, maxBalanceMinor: 500_000_000 },
-    TIER_2: { perTransactionMinor: 1_000_000_000, dailyMinor: 2_000_000_000, monthlyMinor: 10_000_000_000, maxBalanceMinor: 5_000_000_000 },
-  },
-  SN: {
-    TIER_0: { perTransactionMinor: 20_000, dailyMinor: 50_000, monthlyMinor: 200_000, maxBalanceMinor: 200_000 },
-    TIER_1: { perTransactionMinor: 500_000, dailyMinor: 1_000_000, monthlyMinor: 5_000_000, maxBalanceMinor: 2_000_000 },
-    TIER_2: { perTransactionMinor: 5_000_000, dailyMinor: 10_000_000, monthlyMinor: 50_000_000, maxBalanceMinor: 20_000_000 },
-  },
-};
-
-// CEMAC (XAF) limits mirror WAEMU's: same peg, comparable incomes.
-const CFA_LIMITS = TIER_LIMITS.SN;
-for (const code of ["CM", "CF", "TD", "CG", "GQ", "GA"]) TIER_LIMITS[code] = CFA_LIMITS;
-TIER_LIMITS.CD = {
-  TIER_0: { perTransactionMinor: 500_000, dailyMinor: 1_400_000, monthlyMinor: 5_600_000, maxBalanceMinor: 2_800_000 },
-  TIER_1: { perTransactionMinor: 2_800_000, dailyMinor: 5_600_000, monthlyMinor: 28_000_000, maxBalanceMinor: 11_200_000 },
-  TIER_2: { perTransactionMinor: 28_000_000, dailyMinor: 56_000_000, monthlyMinor: 280_000_000, maxBalanceMinor: 112_000_000 },
-};
+// limits by tier" per country. Each country module sets its own, in minor
+// units of its currency; figures are illustrative.
+export const TIER_LIMITS: Record<string, Record<KycTier, TierLimits>> = Object.fromEntries(
+  AFRICAN_COUNTRIES.map((c) => [c.code, c.limits]),
+);
 
 export function tierLimits(countryCode: string, tier: KycTier): TierLimits {
   const country = TIER_LIMITS[countryCode];

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
-  AFRICAN_COUNTRIES,
+  airtimeNetworks,
+  LIVE_COUNTRIES,
   banksFor,
   corridorPolicy,
   COUNTRY_BY_CODE,
@@ -39,8 +40,9 @@ export function Send({ session }: { session: Session }) {
   const [phone, setPhone] = useState(country.callingCode);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0].id);
-  const others = AFRICAN_COUNTRIES.filter((c) => c.code !== country.code);
+  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0]?.id ?? "");
+  // Transfers go to launched markets only.
+  const others = LIVE_COUNTRIES.filter((c) => c.code !== country.code);
   const [dest, setDest] = useState(others[0].code);
   const [purpose, setPurpose] = useState<PurposeCode>("FAMILY_SUPPORT");
   const banks = banksFor(country.code);
@@ -140,7 +142,7 @@ export function Send({ session }: { session: Session }) {
           }}
           options={[
             { id: "benki", label: t("send.benki") },
-            { id: "momo", label: t("send.momo") },
+            ...(country.mobileMoneyProviders.length ? [{ id: "momo" as const, label: t("send.momo") }] : []),
             { id: "bank", label: t("send.bank") },
             { id: "abroad", label: t("send.abroad") },
           ]}
@@ -209,7 +211,13 @@ export function Send({ session }: { session: Session }) {
             <Field label={t("send.recipientPhone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
             <AmountField currency={wallet.currency} value={amount} onChange={setAmount} label={mode === "abroad" ? t("send.youSend") : undefined} />
             {mode === "benki" && <Field label={t("common.noteOptional")} value={note} maxLength={140} onChangeText={setNote} />}
-            {corridorBlocked && <Banner tone="warn">{t("err.cemacOutbound")}</Banner>}
+            {corridorBlocked && (
+              <Banner tone="warn">
+                {corridor.reason === "ENHANCED_DUE_DILIGENCE"
+                  ? t("send.tierEdd", { country: countryName(COUNTRY_BY_CODE[country.code].enhancedDueDiligence ? country.code : dest) })
+                  : t("err.cemacOutbound")}
+              </Banner>
+            )}
             <PrimaryButton
               title={mode === "abroad" ? t("send.getQuote") : t("common.review")}
               disabled={busy || !amountMinor || phone.length < 9 || corridorBlocked}
@@ -233,7 +241,7 @@ export function Pay({ session }: { session: Session }) {
   const [billerId, setBillerId] = useState(country.billers[0].id);
   const [accountNumber, setAccountNumber] = useState("");
   const [merchantCode, setMerchantCode] = useState(country.merchants[0].code);
-  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0].id);
+  const [providerId, setProviderId] = useState(airtimeNetworks(country)[0].id);
   const [airtimePhone, setAirtimePhone] = useState(user.phoneNumber);
   const { error, setError } = useAction();
   const { setIntent, screen } = useIntent(session, () => setAmount(""));
@@ -271,7 +279,7 @@ export function Pay({ session }: { session: Session }) {
         submit: (pin, idempotencyKey) => api.merchant({ idempotencyKey, pin, merchantCode, amountMinor }),
       });
     } else {
-      const provider = country.mobileMoneyProviders.find((p) => p.id === providerId)!;
+      const provider = airtimeNetworks(country).find((p) => p.id === providerId)!;
       setIntent({
         title: t("pay.buyAirtime"),
         rows: [[t("pay.network"), provider.label], [t("common.phone"), airtimePhone], amountRow],
@@ -315,7 +323,7 @@ export function Pay({ session }: { session: Session }) {
         )}
         {mode === "airtime" && (
           <>
-            <ChipSelect label={t("pay.network")} value={providerId} onChange={setProviderId} options={country.mobileMoneyProviders.map((p) => ({ id: p.id, label: p.label }))} />
+            <ChipSelect label={t("pay.network")} value={providerId} onChange={setProviderId} options={airtimeNetworks(country).map((p) => ({ id: p.id, label: p.label }))} />
             <Field label={t("common.phone")} value={airtimePhone} onChangeText={(v) => setAirtimePhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
           </>
         )}

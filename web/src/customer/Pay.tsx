@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { parseMajorToMinor, type MessageKey } from "@benki/shared";
+import { airtimeNetworks, parseMajorToMinor, type MessageKey } from "@benki/shared";
 import { useI18n } from "../i18n";
 import { AmountField, Banner, hintLabel, PageHeader, Segmented, useAction } from "../ui/common";
 import { ConfirmPayment, type PaymentIntent } from "../ui/ConfirmPayment";
@@ -16,7 +16,7 @@ export function Pay({ session }: { session: Session }) {
   const [billerId, setBillerId] = useState(country.billers[0].id);
   const [accountNumber, setAccountNumber] = useState("");
   const [merchantCode, setMerchantCode] = useState("");
-  const [providerId, setProviderId] = useState(country.mobileMoneyProviders[0].id);
+  const [providerId, setProviderId] = useState(airtimeNetworks(country)[0].id);
   const [airtimePhone, setAirtimePhone] = useState(user.phoneNumber);
   const { error, setError } = useAction();
 
@@ -60,7 +60,7 @@ export function Pay({ session }: { session: Session }) {
         submit: (pin, idempotencyKey) => api.merchant({ idempotencyKey, pin, merchantCode, amountMinor }),
       });
     } else {
-      const provider = country.mobileMoneyProviders.find((p) => p.id === providerId)!;
+      const provider = airtimeNetworks(country).find((p) => p.id === providerId)!;
       setIntent({
         title: t("pay.buyAirtime"),
         rows: [[t("pay.network"), provider.label], [t("common.phone"), airtimePhone], amountRow],
@@ -130,7 +130,7 @@ export function Pay({ session }: { session: Session }) {
             <label htmlFor="airtime-network">
               {t("pay.network")}
               <select id="airtime-network" value={providerId} onChange={(e) => setProviderId(e.target.value)}>
-                {country.mobileMoneyProviders.map((p) => (
+                {airtimeNetworks(country).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.label}
                   </option>

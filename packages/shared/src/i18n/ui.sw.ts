@@ -49,6 +49,12 @@ export const uiSw: Record<keyof typeof uiEn, string> = {
   "common.showBalance": "Onyesha salio",
   "common.hideBalance": "Ficha salio",
 
+  "region.CENTRAL": "Afrika ya Kati",
+  "region.WEST": "Afrika Magharibi",
+  "region.EAST": "Afrika Mashariki",
+  "region.SOUTHERN": "Kusini mwa Afrika",
+  "region.NORTH": "Afrika Kaskazini",
+
   "tier.TIER_0": "Msingi",
   "tier.TIER_1": "Imethibitishwa",
   "tier.TIER_2": "Premium",
@@ -80,6 +86,10 @@ export const uiSw: Record<keyof typeof uiEn, string> = {
   "onboarding.staff": "Mfanyakazi? Fungua dashibodi ya ofisi",
   "onboarding.ussd": "Huna simu janja? Piga {code} kwa simu yoyote",
   "onboarding.ussdDemo": "Jaribu kiigaji cha USSD",
+  "onboarding.liveNow": "Inapatikana sasa",
+  "onboarding.comingSoon": "Inakuja hivi karibuni",
+  "onboarding.comingSoonLine": "Inakuja hivi karibuni katika nchi {count} zaidi za Afrika.",
+  "onboarding.notLaunched": "Benki bado haijafunguliwa nchini {country}. Chagua nchi inayopatikana, au rudi baadaye.",
 
   "setPin.title": "Tengeneza PIN yako ya miamala",
   "setPin.body": "Utaweka PIN hii kuidhinisha kila malipo. Epuka tarehe za kuzaliwa, tarakimu zinazojirudia (1111) au zinazofuatana (1234).",
@@ -151,6 +161,7 @@ export const uiSw: Record<keyof typeof uiEn, string> = {
   "send.toProvider": "Tuma kwa {provider}",
   "send.toBank": "Tuma kwa {bank}",
   "send.toCountry": "Tuma kwenda {country}",
+  "send.tierEdd": "Uhamisho unaohusu {country} unahitaji uthibitisho kamili (Kiwango cha 2). Pandisha kwenye Wasifu.",
   "send.accountName": "Jina la akaunti",
   "send.account": "Akaunti",
 
