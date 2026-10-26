@@ -90,6 +90,12 @@ export const uiYo: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Ó ń bọ̀ láìpẹ́",
   "onboarding.comingSoonLine": "Ó ń bọ̀ sí orílẹ̀-èdè Áfíríkà {count} míràn láìpẹ́.",
   "onboarding.notLaunched": "Benki kò tíì ṣí sílẹ̀ ní {country}. Yan orílẹ̀-èdè tó wà, tàbí padà wá láìpẹ́.",
+  "waitlist.title": "Benki ń bọ̀ sí {country}",
+  "waitlist.body": "Fi nọ́mbà rẹ sílẹ̀, a ó fi SMS kan ṣoṣo ránṣẹ́ sí ọ nígbà tí Benki bá ṣí níbẹ̀. A kò ní lò ó fún nǹkan mìíràn.",
+  "waitlist.join": "Sọ fún mi",
+  "waitlist.joined": "Ẹ ṣé! A ó fi SMS ránṣẹ́ sí {phone} nígbà tí Benki bá ṣí ní {country}.",
+  "waitlist.cta": "Orílẹ̀-èdè mi kò tíì ṣí",
+  "waitlist.back": "Padà sí ìwọlé",
 
   "setPin.title": "Ṣẹ̀dá PIN ìdúnàádúrà rẹ",
   "setPin.body": "Ìwọ yóò tẹ PIN yìí láti fọwọ́ sí gbogbo ìsanwó. Yẹra fún ọjọ́ ìbí, nọ́mbà tó ń tún ara wọn ṣe (1111) tàbí tó tẹ̀léra (1234).",

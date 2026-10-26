@@ -94,6 +94,12 @@ export const uiEs: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Próximamente",
   "onboarding.comingSoonLine": "Próximamente en {count} países africanos más.",
   "onboarding.notLaunched": "Benki todavía no está abierto en {country}. Elija un país disponible o vuelva pronto.",
+  "waitlist.title": "Benki llega pronto a {country}",
+  "waitlist.body": "Deje su número y le enviaremos un solo SMS cuando Benki abra allí. No lo usaremos para nada más.",
+  "waitlist.join": "Avisarme",
+  "waitlist.joined": "¡Gracias! Enviaremos un SMS al {phone} cuando Benki abra en {country}.",
+  "waitlist.cta": "Mi país aún no está abierto",
+  "waitlist.back": "Volver al inicio de sesión",
 
   "setPin.title": "Cree su PIN de transacción",
   "setPin.body": "Introducirá este PIN para aprobar cada pago. Evite fechas de nacimiento, dígitos repetidos (1111) o secuencias (1234).",

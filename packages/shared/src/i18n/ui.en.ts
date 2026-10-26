@@ -92,6 +92,12 @@ export const uiEn = {
   "onboarding.comingSoon": "Coming soon",
   "onboarding.comingSoonLine": "Coming soon to {count} more African countries.",
   "onboarding.notLaunched": "Benki isn't open in {country} yet. Choose an available country, or check back soon.",
+  "waitlist.title": "Benki is coming to {country}",
+  "waitlist.body": "Leave your number and we'll send you one SMS when Benki opens there. We won't use it for anything else.",
+  "waitlist.join": "Notify me",
+  "waitlist.joined": "Thanks! We'll text {phone} when Benki opens in {country}.",
+  "waitlist.cta": "My country isn't open yet",
+  "waitlist.back": "Back to sign-in",
 
   "setPin.title": "Create your transaction PIN",
   "setPin.body": "You'll enter this PIN to approve every payment. Avoid birthdays, repeated digits (1111) or sequences (1234).",

@@ -94,6 +94,12 @@ export const uiLn: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Ekoya noki",
   "onboarding.comingSoonLine": "Ekoya noki na mikili mosusu {count} ya Afríka.",
   "onboarding.notLaunched": "Benki efungwami naino te na {country}. Pona mboka oyo ezali, to zongá noki.",
+  "waitlist.title": "Benki ezali koya na {country}",
+  "waitlist.body": "Tikalá nimero na yo, tokotindela yo SMS moko ntango Benki ekofungwama kuna. Tokosalela yango mpo na eloko mosusu te.",
+  "waitlist.join": "Yebisá ngai",
+  "waitlist.joined": "Matondi! Tokotinda SMS na {phone} ntango Benki ekofungwama na {country}.",
+  "waitlist.cta": "Mboka na ngai efungwami naino te",
+  "waitlist.back": "Zongá na kokɔta",
 
   "setPin.title": "Salá PIN na yo ya mombongo",
   "setPin.body": "Okokoma PIN oyo mpo na kondima lifuti nyonso. Salelá mokolo ya mbotama te, nimero oyo ezongelami te (1111) to oyo elandani te (1234).",

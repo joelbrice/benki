@@ -111,6 +111,7 @@ export const serverPt: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Ter dólares ou euros não está disponível nos países da CEMAC segundo as regras cambiais do BEAC.",
   "err.marketNotLaunched": "O Benki ainda não está aberto em {country}. Brevemente.",
   "err.eddCorridor": "As transferências que envolvem {country} exigem verificação completa (Nível 2) segundo as nossas regras de diligência reforçada. Atualize no Perfil.",
+  "err.marketLive": "O Benki já está aberto em {country}. Crie antes a sua conta.",
 
   // --- Payment confirmations ---------------------------------------------------------
   "pay.completed": "{type}: {amount} concluído.",
@@ -176,6 +177,7 @@ export const serverPt: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Atualização da sua contestação de {ref}: {resolution}",
   "notif.disputeUpheld": "A sua contestação foi aceite e o pagamento foi estornado.",
   "notif.pinChanged": "O seu PIN de transação foi alterado. Se não foi você, contacte imediatamente o apoio ao cliente.",
+  "notif.marketLaunched": "O Benki já está aberto em {country}! Descarregue a app ou marque {code} em qualquer telefone para abrir a sua conta.",
 
   // --- USSD (keep lines short: 182 characters per screen) ------------------------------
   "ussd.notAvailable": "O Benki ainda não está disponível nesta rede.",

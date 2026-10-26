@@ -108,6 +108,7 @@ Ten languages: English, French, Portuguese, Spanish, Arabic, Kiswahili, Lingala,
 | XOF ↔ XAF is treated as a foreign exchange (different central banks), with the normal margin | `corridorPolicy` | `products.test.ts` |
 
 | Conflict-affected jurisdictions (flagged per country module) need Tier 2 on every corridor in or out | `enhancedDueDiligence`, `corridorPolicy`, `err.eddCorridor` | `countries.test.ts` |
+| Waitlist: numbers encrypted at rest (HMAC only for de-duplication), staff see counts only, rate limited, no enumeration; the launch SMS goes once, only after launch, by a supervisor, and is audited | `services/markets.ts`, `market_waitlist`, `sms_outbox` | `countries.test.ts` |
 | Planned markets are closed: no sign-up, no transfers in, no USSD, no seeded agents | `services/auth.ts`, `services/fx.ts`, `services/ussd.ts`, `services/seed.ts` | `countries.test.ts` |
 | Every market has a rate, limits that rise by tier, partners, unique identifiers and an unambiguous dialling code | `packages/shared/src/countries/*` | `countries.test.ts` |
 

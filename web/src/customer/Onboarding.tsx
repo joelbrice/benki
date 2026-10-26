@@ -15,10 +15,14 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
   const [otpSent, setOtpSent] = useState(false);
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [languageTouched, setLanguageTouched] = useState(false);
+  const [joined, setJoined] = useState(false);
   const { busy, error, run } = useAction();
+  const planned = COUNTRY_BY_CODE[countryCode].launch !== "LIVE";
+  const countryLabel = t(`country.${countryCode}` as MessageKey);
 
   const changeCountry = (code: string) => {
     setCountryCode(code);
+    setJoined(false);
     setPhone(COUNTRY_BY_CODE[code].callingCode);
     // Follow the market's main language until the person picks one themselves.
     if (!languageTouched && locale !== DEFAULT_LOCALE_BY_COUNTRY[code]) setLocale(DEFAULT_LOCALE_BY_COUNTRY[code] ?? "en");
@@ -53,7 +57,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
 
       <section className="auth-card">
         <div className="auth-top">
-          <h2>{otpSent ? t("onboarding.enterCode") : t("onboarding.title")}</h2>
+          <h2>{otpSent ? t("onboarding.enterCode") : planned ? t("waitlist.title", { country: countryLabel }) : t("onboarding.title")}</h2>
           <LanguageSelect compact countryCode={countryCode} onChange={() => setLanguageTouched(true)} />
         </div>
         {!otpSent ? (
@@ -64,7 +68,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
                 <CountryOptions countries={LIVE_COUNTRIES} detail />
                 <optgroup label={t("onboarding.comingSoon")}>
                   {PLANNED_COUNTRIES.map((c) => (
-                    <option key={c.code} value={c.code} disabled>
+                    <option key={c.code} value={c.code}>
                       {c.flag} {t(`country.${c.code}` as MessageKey)}
                     </option>
                   ))}
@@ -75,19 +79,42 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
               {t("onboarding.phone")}
               <input id="phone" inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ""))} />
             </label>
-            <button
-              className="block"
-              disabled={busy || phone.length < 9}
-              onClick={() =>
-                run(async () => {
-                  const res = await authApi.sendOtp(phone, countryCode);
-                  setDevOtp(res.devOtp ?? null);
-                  setOtpSent(true);
-                })
-              }
-            >
-              {t("onboarding.sendCode")}
-            </button>
+            {planned ? (
+              // Planned market: no account yet, but we record the demand to plan the launch.
+              joined ? (
+                <Banner tone="success">{t("waitlist.joined", { phone, country: countryLabel })}</Banner>
+              ) : (
+                <>
+                  <p className="muted small">{t("waitlist.body")}</p>
+                  <button
+                    className="block"
+                    disabled={busy || phone.length < 9}
+                    onClick={() =>
+                      run(async () => {
+                        await authApi.joinWaitlist(phone, countryCode, locale);
+                        setJoined(true);
+                      })
+                    }
+                  >
+                    {t("waitlist.join")}
+                  </button>
+                </>
+              )
+            ) : (
+              <button
+                className="block"
+                disabled={busy || phone.length < 9}
+                onClick={() =>
+                  run(async () => {
+                    const res = await authApi.sendOtp(phone, countryCode);
+                    setDevOtp(res.devOtp ?? null);
+                    setOtpSent(true);
+                  })
+                }
+              >
+                {t("onboarding.sendCode")}
+              </button>
+            )}
           </>
         ) : (
           <>

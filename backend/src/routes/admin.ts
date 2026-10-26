@@ -12,6 +12,7 @@ import { listAllDisputes, rejectDispute, requestDisputeReversal } from "../servi
 import { resolveScreeningAlert } from "../services/kyc";
 import { trialBalance } from "../services/ledger";
 import { approveHeldTransaction, rejectHeldTransaction } from "../services/payments";
+import { listMarkets, notifyWaitlist } from "../services/markets";
 import { listReconciliationExceptions, listReconciliationRuns, runReconciliation } from "../services/reconciliation";
 import { dispatchPayout, runSettlementOnce } from "../services/settlement";
 import { staffLogin, staffLogout } from "../services/staff";
@@ -38,6 +39,14 @@ export function adminRoutes(ctx: AppContext): Router {
   });
   router.get("/dashboard", staff, (_req, res) => {
     res.json(dashboard(ctx));
+  });
+
+  // Markets: launch stage and demand for every African country.
+  router.get("/markets", staff, (_req, res) => {
+    res.json({ markets: listMarkets(ctx) });
+  });
+  router.post("/markets/:countryCode/notify-waitlist", supervisors, (req, res) => {
+    res.json(notifyWaitlist(ctx, req.staff!, req.params.countryCode.toUpperCase()));
   });
 
   // Alerts & cases

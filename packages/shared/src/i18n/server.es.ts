@@ -109,6 +109,7 @@ export const serverEs: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Tener dólares o euros no está disponible en los países de la CEMAC según la normativa de cambios del BEAC.",
   "err.marketNotLaunched": "Benki todavía no está abierto en {country}. Próximamente.",
   "err.eddCorridor": "Las transferencias relacionadas con {country} requieren verificación completa (nivel 2) según nuestras normas de diligencia reforzada. Actualice su nivel en Perfil.",
+  "err.marketLive": "Benki ya está abierto en {country}. Cree su cuenta.",
 
   "pay.completed": "{type}: {amount} completado.",
   "pay.sending": "Enviando {amount} a {name}. Le confirmaremos la entrega en breve.",
@@ -171,6 +172,7 @@ export const serverEs: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Novedades de su reclamación sobre {ref}: {resolution}",
   "notif.disputeUpheld": "Su reclamación ha sido aceptada y el pago ha sido anulado.",
   "notif.pinChanged": "Se ha cambiado su PIN de transacción. Si no ha sido usted, contacte de inmediato con el servicio de atención.",
+  "notif.marketLaunched": "¡Benki ya está abierto en {country}! Descargue la app o marque {code} en cualquier teléfono para abrir su cuenta.",
 
   "ussd.notAvailable": "Benki todavía no está disponible en esta red.",
   "ussd.welcome": "¡Bienvenido a Benki!",

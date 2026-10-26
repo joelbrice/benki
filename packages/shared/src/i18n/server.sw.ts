@@ -109,6 +109,7 @@ export const serverSw: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Kuweka dola au yuro hakupatikani katika nchi za CEMAC chini ya kanuni za fedha za kigeni za BEAC.",
   "err.marketNotLaunched": "Benki bado haijafunguliwa nchini {country}. Inakuja hivi karibuni.",
   "err.eddCorridor": "Uhamisho unaohusu {country} unahitaji uthibitisho kamili (Kiwango cha 2) chini ya kanuni zetu za uangalifu ulioimarishwa. Pandisha kwenye Wasifu.",
+  "err.marketLive": "Benki tayari imefunguliwa nchini {country}. Fungua akaunti yako badala yake.",
 
   "pay.completed": "{type}: {amount} imekamilika.",
   "pay.sending": "Inatuma {amount} kwa {name}. Tutathibitisha punde itakapofika.",
@@ -171,6 +172,7 @@ export const serverSw: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Taarifa kuhusu lalamiko lako la {ref}: {resolution}",
   "notif.disputeUpheld": "Lalamiko lako limekubaliwa na malipo yamerejeshwa.",
   "notif.pinChanged": "PIN yako ya miamala imebadilishwa. Kama si wewe, wasiliana na huduma kwa wateja mara moja.",
+  "notif.marketLaunched": "Benki sasa imefunguliwa nchini {country}! Pakua programu au piga {code} kwenye simu yoyote kufungua akaunti yako.",
 
   "ussd.notAvailable": "Benki bado haipatikani kwenye mtandao huu.",
   "ussd.welcome": "Karibu Benki!",

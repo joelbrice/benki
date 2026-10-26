@@ -111,6 +111,7 @@ export const serverAr: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "حيازة الدولار أو اليورو غير متاحة في دول سيماك وفق قواعد الصرف لبنك دول وسط أفريقيا.",
   "err.marketNotLaunched": "Benki غير متاح بعد في {country}. قريبًا.",
   "err.eddCorridor": "تتطلب التحويلات المتعلقة بـ {country} توثيقًا كاملًا (المستوى 2) وفق قواعد العناية الواجبة المعززة لدينا. قم بالترقية من الملف الشخصي.",
+  "err.marketLive": "Benki متاح بالفعل في {country}. أنشئ حسابك بدلًا من ذلك.",
 
   // --- Payment confirmations ---------------------------------------------------------
   "pay.completed": "{type}: اكتمل {amount}.",
@@ -176,6 +177,7 @@ export const serverAr: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "مستجدات اعتراضك على {ref}: {resolution}",
   "notif.disputeUpheld": "تم قبول اعتراضك وعكس الدفعة.",
   "notif.pinChanged": "تم تغيير رقمك السري للمعاملات. إذا لم يكن ذلك أنت، تواصل مع خدمة العملاء فورًا.",
+  "notif.marketLaunched": "Benki متاح الآن في {country}! نزّل التطبيق أو اطلب {code} من أي هاتف لفتح حسابك.",
 
   // --- USSD (keep lines short: Arabic is sent as UCS-2, about 70 characters per segment) ---
   "ussd.notAvailable": "Benki غير متوفر على هذه الشبكة بعد.",

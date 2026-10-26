@@ -48,6 +48,7 @@ import { applyRepayment, draftLoanDisbursement, draftLoanRepayment, listLoans, l
 import { changePin, setPin, verifyPin } from "../services/pin";
 import { draftConversion, listPockets, openPocket, quoteConversion } from "../services/pockets";
 import { cancelRequest, createRequest, declineRequest, draftRequestPayment, listRequests, markRequestPaid } from "../services/requests";
+import { joinWaitlist } from "../services/markets";
 import { runPayment, type PaymentRequest } from "../services/pipeline";
 import { createVault, listVaults } from "../services/savings";
 import { statementCsv } from "../services/statements";
@@ -158,6 +159,15 @@ export function customerRoutes(ctx: AppContext): Router {
     const body = parse(z.object({ pin }), req.body);
     setPin(ctx, req.user!, body.pin);
     res.status(201).json({ user: toUserProfile(getUser(ctx, req.user!.id)!) });
+  });
+  // Planned markets: anyone can ask to be told when Benki launches there.
+  root.post("/markets/waitlist", rateLimit(ctx, "waitlist", 5, 60_000), (req, res) => {
+    const body = parse(
+      z.object({ phoneNumber: e164Phone, countryCode: z.string().length(2), locale: z.enum(LOCALE_CODES as [Locale, ...Locale[]]).optional() }),
+      req.body,
+    );
+    joinWaitlist(ctx, body.phoneNumber, body.countryCode.toUpperCase(), body.locale ?? requestLocale(req));
+    res.status(202).json({ joined: true });
   });
   root.post("/me/locale", authed, (req, res) => {
     const body = parse(z.object({ locale: z.enum(LOCALE_CODES as [Locale, ...Locale[]]) }), req.body);

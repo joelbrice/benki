@@ -115,6 +115,7 @@ export const serverLn: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Kobomba dollars to euros ekoki te na mikili ya CEMAC na mibeko ya mbongo ya BEAC.",
   "err.marketNotLaunched": "Benki efungwami naino te na {country}. Ekoya noki.",
   "err.eddCorridor": "Botindi oyo etali {country} esengi bondimisi mobimba (Tier 2) na mibeko na biso ya botaleli ya likoló. Matá niveau na Profil.",
+  "err.marketLive": "Benki efungwami kala na {country}. Fungolá compte na yo.",
 
   // --- Payment confirmations ---------------------------------------------------------
   "pay.completed": "{type}: {amount} esili.",
@@ -180,6 +181,7 @@ export const serverLn: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Sango ya ntembe na yo mpo na {ref}: {resolution}",
   "notif.disputeUpheld": "Ntembe na yo endimami mpe lifuti ezongisami.",
   "notif.pinChanged": "PIN na yo ya mombongo ebongwani. Soki ezali yo te, benga service client noki.",
+  "notif.marketLaunched": "Benki efungwami sikawa na {country}! Kitisá application to benga {code} na telefone nyonso mpo na kofungola compte na yo.",
 
   // --- USSD (keep lines short: 182 characters per screen) ------------------------------
   "ussd.notAvailable": "Benki ezali naino te na réseau oyo.",

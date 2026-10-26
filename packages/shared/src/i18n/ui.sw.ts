@@ -90,6 +90,12 @@ export const uiSw: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Inakuja hivi karibuni",
   "onboarding.comingSoonLine": "Inakuja hivi karibuni katika nchi {count} zaidi za Afrika.",
   "onboarding.notLaunched": "Benki bado haijafunguliwa nchini {country}. Chagua nchi inayopatikana, au rudi baadaye.",
+  "waitlist.title": "Benki inakuja {country}",
+  "waitlist.body": "Acha namba yako na tutakutumia SMS moja Benki itakapofunguliwa huko. Hatutaitumia kwa jambo lingine.",
+  "waitlist.join": "Nijulishe",
+  "waitlist.joined": "Asante! Tutatuma SMS kwa {phone} Benki itakapofunguliwa {country}.",
+  "waitlist.cta": "Nchi yangu bado haijafunguliwa",
+  "waitlist.back": "Rudi kuingia",
 
   "setPin.title": "Tengeneza PIN yako ya miamala",
   "setPin.body": "Utaweka PIN hii kuidhinisha kila malipo. Epuka tarehe za kuzaliwa, tarakimu zinazojirudia (1111) au zinazofuatana (1234).",

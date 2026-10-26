@@ -15,6 +15,16 @@ DRC) is listed first everywhere. Twelve markets are **live**; the other 42 are
 **planned**: fully described, shown to customers as "coming soon", and closed to
 sign-ups, transfers and USSD until launch.
 
+## Measuring demand
+
+Customers can pick a planned country in the apps and leave their number
+(`POST /v1/markets/waitlist`). The back office's **Markets** view lists every
+country with its stage, live customers and waitlist size, and sorts planned
+markets by demand — the signal for which launch comes next. Numbers are
+encrypted at rest and never shown to staff; only counts are. Sign-ups are rate
+limited, and the response is the same whether or not a number was already on
+the list.
+
 ## Launching a planned market
 
 1. **Licence and partners.** Confirm the licence route and supervisor with counsel;
@@ -34,6 +44,9 @@ sign-ups, transfers and USSD until launch.
    screening lists and regulatory reports.
 5. **Switch on.** Set `launch: "LIVE"`. Sign-up, agents, merchants, transfers in
    and out, USSD and the apps' country pickers pick it up automatically.
+   Then, in the back office (**Markets**), a supervisor texts the country's
+   waitlist: one SMS per person, in the language they chose, recorded in the
+   audit log. It can't be sent twice or before launch.
 6. **Verify.** `npm test` runs the catalog checks in `backend/test/countries.test.ts`
    (unique identifiers, unambiguous dialling codes, a rate, limits and partners for
    every market) along with the full suite.

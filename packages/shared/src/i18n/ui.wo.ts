@@ -90,6 +90,12 @@ export const uiWo: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Dina ñëw",
   "onboarding.comingSoonLine": "Dina ñëw ci {count} yeneen réewi Afrig.",
   "onboarding.notLaunched": "Benki ubbeegul ci {country} ba léegi. Tànnal réew bu am, walla nga délusi ci kanam.",
+  "waitlist.title": "Benki mu ngi ñëw ci {country}",
+  "waitlist.body": "Bàyyil sa nimero, dinanu la yónnee benn SMS rekk bu Benki ubbee fa. Dunu ko jëfandikoo ci beneen lu dul loolu.",
+  "waitlist.join": "Yégal ma",
+  "waitlist.joined": "Jërëjëf! Dinanu yónnee SMS ci {phone} bu Benki ubbee ci {country}.",
+  "waitlist.cta": "Sama réew ubbeegul",
+  "waitlist.back": "Dellu ci duggu",
 
   "setPin.title": "Defal sa PIN bu transaction",
   "setPin.body": "Dinga bind PIN bii ngir dëggal bépp fey. Bul jëfandikoo bisu juddu, siifar yu niroo (1111) walla yu toppante (1234).",

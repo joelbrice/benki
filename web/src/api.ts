@@ -2,6 +2,7 @@ import type {
   AdminAlert,
   AdminCase,
   AdminDashboard,
+  AdminMarket,
   AdminDispute,
   AdminTransaction,
   AdminUserView,
@@ -105,6 +106,8 @@ async function request<T>(path: string, options: { method?: string; token?: stri
 export const authApi = {
   sendOtp: (phoneNumber: string, countryCode: string) =>
     request<OtpSendResponse>("/v1/auth/otp/send", { method: "POST", body: { phoneNumber, countryCode } }),
+  joinWaitlist: (phoneNumber: string, countryCode: string, locale?: Locale) =>
+    request<{ joined: true }>("/v1/markets/waitlist", { method: "POST", body: { phoneNumber, countryCode, locale } }),
   verifyOtp: (phoneNumber: string, otp: string, locale?: Locale) =>
     request<OtpVerifyResponse>("/v1/auth/otp/verify", { method: "POST", body: { phoneNumber, otp, locale } }),
 };
@@ -227,6 +230,8 @@ export function adminApi(token: string) {
     me: () => get<{ staffId: string; username: string; role: string }>("/v1/admin/me"),
     logout: () => post<void>("/v1/admin/logout"),
     dashboard: () => get<AdminDashboard>("/v1/admin/dashboard"),
+    markets: () => get<{ markets: AdminMarket[] }>("/v1/admin/markets"),
+    notifyWaitlist: (countryCode: string) => post<{ queued: number }>(`/v1/admin/markets/${countryCode}/notify-waitlist`),
     alerts: (status?: string) => get<{ alerts: AdminAlert[] }>(`/v1/admin/alerts${q(status)}`),
     resolveScreening: (alertId: string, decision: "CLEAR" | "CONFIRM", note: string) =>
       post<void>(`/v1/admin/alerts/${alertId}/screening`, { decision, note }),

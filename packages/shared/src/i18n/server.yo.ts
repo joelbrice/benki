@@ -109,6 +109,7 @@ export const serverYo: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Níní dọ́là tàbí yúrò kò sí ní àwọn orílẹ̀-èdè CEMAC gẹ́gẹ́ bí òfin pàṣípààrọ̀ BEAC.",
   "err.marketNotLaunched": "Benki kò tíì ṣí sílẹ̀ ní {country}. Ó ń bọ̀ láìpẹ́.",
   "err.eddCorridor": "Ìfiránṣẹ́ tó kan {country} nílò ìdánilójú kíkún (Ìpele 2) gẹ́gẹ́ bí òfin àyẹ̀wò àfikún wa. Gòkè nínú Àkọsílẹ̀ mi.",
+  "err.marketLive": "Benki ti ṣí sílẹ̀ ní {country} tẹ́lẹ̀. Ṣí àkọọ́lẹ̀ rẹ dípò bẹ́ẹ̀.",
 
   "pay.completed": "{type}: {amount} ti parí.",
   "pay.sending": "À ń fi {amount} ránṣẹ́ sí {name}. A ó fìdí rẹ̀ múlẹ̀ láìpẹ́.",
@@ -171,6 +172,7 @@ export const serverYo: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Ìròyìn lórí àríyànjiyàn rẹ fún {ref}: {resolution}",
   "notif.disputeUpheld": "A gba àríyànjiyàn rẹ wọlé, a sì ti dá ìsanwó náà padà.",
   "notif.pinChanged": "A ti yí PIN ìdúnàádúrà rẹ padà. Tí kì í bá ṣe ìwọ, kàn sí àwọn olùrànlọ́wọ́ lẹ́sẹ̀kẹsẹ̀.",
+  "notif.marketLaunched": "Benki ti ṣí sílẹ̀ báyìí ní {country}! Ṣe ìgbàsílẹ̀ áàpù tàbí tẹ {code} lórí fóònù èyíkéyìí láti ṣí àkọọ́lẹ̀ rẹ.",
 
   "ussd.notAvailable": "Benki kò tíì sí lórí nẹ́tíwọ̀ọ̀kì yìí.",
   "ussd.welcome": "Ẹ kú àbọ̀ sí Benki!",

@@ -177,6 +177,23 @@ export interface ReconciliationRun {
   currency: string;
 }
 
+/** One market in the back office's expansion view. */
+export interface AdminMarket {
+  code: string;
+  name: string;
+  region: string;
+  launch: "LIVE" | "PLANNED";
+  currency: string;
+  zone: string | null;
+  regulator: string;
+  enhancedDueDiligence: boolean;
+  customers: number;
+  /** People waiting for the launch (counts only — numbers are never shown). */
+  waitlist: number;
+  /** Waitlisted people not yet told about a launch. */
+  waitlistPending: number;
+}
+
 export interface AdminDashboard {
   users: number;
   frozenUsers: number;

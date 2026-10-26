@@ -94,6 +94,12 @@ export const uiPt: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Brevemente",
   "onboarding.comingSoonLine": "Brevemente em mais {count} países africanos.",
   "onboarding.notLaunched": "O Benki ainda não está aberto em {country}. Escolha um país disponível ou volte em breve.",
+  "waitlist.title": "O Benki está a chegar a {country}",
+  "waitlist.body": "Deixe o seu número e enviaremos um único SMS quando o Benki abrir aí. Não o usaremos para mais nada.",
+  "waitlist.join": "Avisar-me",
+  "waitlist.joined": "Obrigado! Enviaremos um SMS para {phone} quando o Benki abrir em {country}.",
+  "waitlist.cta": "O meu país ainda não está aberto",
+  "waitlist.back": "Voltar ao início de sessão",
 
   "setPin.title": "Crie o seu PIN de transação",
   "setPin.body": "Vai introduzir este PIN para aprovar cada pagamento. Evite datas de nascimento, dígitos repetidos (1111) ou sequências (1234).",

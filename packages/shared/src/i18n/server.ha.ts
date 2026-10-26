@@ -109,6 +109,7 @@ export const serverHa: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Ba a samun ajiyar dala ko yuro a ƙasashen CEMAC bisa dokokin canjin kuɗi na BEAC.",
   "err.marketNotLaunched": "Benki bai buɗe a {country} ba tukuna. Yana zuwa nan ba da daɗewa ba.",
   "err.eddCorridor": "Tura kuɗi da ya shafi {country} yana buƙatar cikakken tabbatarwa (Mataki na 2) bisa ƙa'idojinmu na ƙarin bincike. Haura a Bayanina.",
+  "err.marketLive": "Benki ya riga ya buɗe a {country}. Ka buɗe asusunka maimakon haka.",
 
   "pay.completed": "{type}: an kammala {amount}.",
   "pay.sending": "Ana tura {amount} zuwa {name}. Za mu tabbatar da isarsa nan ba da daɗewa ba.",
@@ -171,6 +172,7 @@ export const serverHa: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Labari kan ƙorafinka na {ref}: {resolution}",
   "notif.disputeUpheld": "An amince da ƙorafinka kuma an mayar da biyan.",
   "notif.pinChanged": "An canza PIN ɗinka na ma'amala. Idan ba kai ba ne, tuntuɓi masu taimako nan take.",
+  "notif.marketLaunched": "Benki ya buɗe yanzu a {country}! Sauke manhajar ko ka danna {code} a kowace waya don buɗe asusunka.",
 
   "ussd.notAvailable": "Benki bai fara aiki a wannan kamfanin waya ba tukuna.",
   "ussd.welcome": "Barka da zuwa Benki!",

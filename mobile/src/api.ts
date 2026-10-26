@@ -93,6 +93,8 @@ async function request<T>(path: string, options: { method?: string; token?: stri
 export const authApi = {
   sendOtp: (phoneNumber: string, countryCode: string) =>
     request<OtpSendResponse>("/v1/auth/otp/send", { method: "POST", body: { phoneNumber, countryCode } }),
+  joinWaitlist: (phoneNumber: string, countryCode: string, locale?: Locale) =>
+    request<{ joined: true }>("/v1/markets/waitlist", { method: "POST", body: { phoneNumber, countryCode, locale } }),
   verifyOtp: (phoneNumber: string, otp: string, locale?: Locale) =>
     request<OtpVerifyResponse>("/v1/auth/otp/verify", { method: "POST", body: { phoneNumber, otp, locale } }),
 };

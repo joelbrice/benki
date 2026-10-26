@@ -90,6 +90,12 @@ export const uiFr: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Bientôt disponible",
   "onboarding.comingSoonLine": "Bientôt dans {count} autres pays africains.",
   "onboarding.notLaunched": "Benki n'est pas encore ouvert dans ce pays ({country}). Choisissez un pays disponible ou revenez bientôt.",
+  "waitlist.title": "Benki arrive bientôt : {country}",
+  "waitlist.body": "Laissez votre numéro : nous vous enverrons un seul SMS à l'ouverture de Benki dans ce pays. Il ne servira à rien d'autre.",
+  "waitlist.join": "Me prévenir",
+  "waitlist.joined": "Merci ! Nous enverrons un SMS au {phone} dès l'ouverture de Benki ({country}).",
+  "waitlist.cta": "Mon pays n'est pas encore ouvert",
+  "waitlist.back": "Retour à la connexion",
 
   "setPin.title": "Créez votre code PIN de transaction",
   "setPin.body": "Vous saisirez ce PIN pour valider chaque paiement. Évitez les dates de naissance, les chiffres répétés (1111) ou les suites (1234).",

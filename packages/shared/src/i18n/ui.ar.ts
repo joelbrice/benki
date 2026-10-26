@@ -94,6 +94,12 @@ export const uiAr: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "قريبًا",
   "onboarding.comingSoonLine": "قريبًا في {count} دولة أفريقية أخرى.",
   "onboarding.notLaunched": "Benki غير متاح بعد في {country}. اختر بلدًا متاحًا أو عد قريبًا.",
+  "waitlist.title": "Benki قادم إلى {country}",
+  "waitlist.body": "اترك رقمك وسنرسل إليك رسالة نصية واحدة عند افتتاح Benki هناك. لن نستخدمه لأي غرض آخر.",
+  "waitlist.join": "أعلمني",
+  "waitlist.joined": "شكرًا! سنرسل رسالة إلى {phone} عند افتتاح Benki في {country}.",
+  "waitlist.cta": "بلدي غير متاح بعد",
+  "waitlist.back": "العودة إلى تسجيل الدخول",
 
   "setPin.title": "أنشئ رقمك السري للمعاملات",
   "setPin.body": "ستُدخل هذا الرقم السري لاعتماد كل دفعة. تجنّب تواريخ الميلاد والأرقام المكررة (1111) أو المتسلسلة (1234).",

@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { COUNTRY_BY_CODE, LIVE_COUNTRIES, PLANNED_COUNTRIES, DEFAULT_COUNTRY_CODE, DEFAULT_LOCALE_BY_COUNTRY, USSD_SHORT_CODE, type MessageKey } from "@benki/shared";
+import {
+  COUNTRY_BY_CODE,
+  LIVE_COUNTRIES,
+  PLANNED_COUNTRIES,
+  type Region,
+  DEFAULT_COUNTRY_CODE,
+  DEFAULT_LOCALE_BY_COUNTRY,
+  USSD_SHORT_CODE,
+  type MessageKey,
+} from "@benki/shared";
 import { authApi, type CustomerApi } from "../api";
 import { Banner, Card, ChipSelect, Field, GhostButton, Icon, LanguagePicker, Muted, PinField, PrimaryButton, Title, useAction } from "../components/ui";
 import { useI18n } from "../i18n";
@@ -14,6 +23,7 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [languageTouched, setLanguageTouched] = useState(false);
+  const [waitlist, setWaitlist] = useState(false);
   const { busy, error, run } = useAction();
 
   return (
@@ -34,54 +44,118 @@ export function Onboarding({ onSignedIn }: { onSignedIn: (token: string) => void
         <Text style={styles.soon}>{t("onboarding.comingSoonLine", { count: PLANNED_COUNTRIES.length })}</Text>
       </View>
 
-      <Card>
-        <Title>{otpSent ? t("onboarding.enterCode") : t("onboarding.title")}</Title>
-        <LanguagePicker countryCode={countryCode} onChange={() => setLanguageTouched(true)} />
-        {!otpSent ? (
-          <>
-            <ChipSelect
-              label={t("onboarding.country")}
-              value={countryCode}
-              onChange={(code) => {
-                setCountryCode(code);
-                setPhone(COUNTRY_BY_CODE[code].callingCode);
-                const native = DEFAULT_LOCALE_BY_COUNTRY[code] ?? "en";
-                if (!languageTouched && locale !== native) setLocale(native);
-              }}
-              // Launched markets only, Cameroon first; the rest are listed under the hero as coming soon.
-              options={LIVE_COUNTRIES.map((c) => ({ id: c.code, label: `${c.flag} ${t(`country.${c.code}` as MessageKey)}` }))}
-            />
-            <Field label={t("onboarding.phone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
-            <PrimaryButton
-              title={t("onboarding.sendCode")}
-              disabled={busy || phone.length < 9}
-              onPress={() =>
-                run(async () => {
-                  const res = await authApi.sendOtp(phone, countryCode);
-                  setDevOtp(res.devOtp ?? null);
-                  setOtpSent(true);
-                })
-              }
-            />
-          </>
-        ) : (
-          <>
-            <Muted>{t("onboarding.codeSent", { phone })}</Muted>
-            {devOtp && <Banner tone="warn">{t("onboarding.sandboxCode", { code: devOtp })}</Banner>}
-            <Field label={t("onboarding.code")} value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" />
-            <PrimaryButton
-              title={t("onboarding.verify")}
-              disabled={busy || otp.length !== 6}
-              onPress={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp, locale)).token))}
-            />
-            <GhostButton title={t("onboarding.changeNumber")} onPress={() => setOtpSent(false)} />
-          </>
-        )}
-        {error && <Banner tone="error">{error}</Banner>}
-        <Muted>{t("onboarding.safety")}</Muted>
-        <Muted>{t("onboarding.ussd", { code: USSD_SHORT_CODE })}</Muted>
-      </Card>
+      {waitlist ? (
+        <Waitlist onBack={() => setWaitlist(false)} />
+      ) : (
+        <Card>
+          <Title>{otpSent ? t("onboarding.enterCode") : t("onboarding.title")}</Title>
+          <LanguagePicker countryCode={countryCode} onChange={() => setLanguageTouched(true)} />
+          {!otpSent ? (
+            <>
+              <ChipSelect
+                label={t("onboarding.country")}
+                value={countryCode}
+                onChange={(code) => {
+                  setCountryCode(code);
+                  setPhone(COUNTRY_BY_CODE[code].callingCode);
+                  const native = DEFAULT_LOCALE_BY_COUNTRY[code] ?? "en";
+                  if (!languageTouched && locale !== native) setLocale(native);
+                }}
+                // Launched markets only, Cameroon first; the rest are listed under the hero as coming soon.
+                options={LIVE_COUNTRIES.map((c) => ({ id: c.code, label: `${c.flag} ${t(`country.${c.code}` as MessageKey)}` }))}
+              />
+              <Field label={t("onboarding.phone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
+              <PrimaryButton
+                title={t("onboarding.sendCode")}
+                disabled={busy || phone.length < 9}
+                onPress={() =>
+                  run(async () => {
+                    const res = await authApi.sendOtp(phone, countryCode);
+                    setDevOtp(res.devOtp ?? null);
+                    setOtpSent(true);
+                  })
+                }
+              />
+              <GhostButton title={t("waitlist.cta")} onPress={() => setWaitlist(true)} />
+            </>
+          ) : (
+            <>
+              <Muted>{t("onboarding.codeSent", { phone })}</Muted>
+              {devOtp && <Banner tone="warn">{t("onboarding.sandboxCode", { code: devOtp })}</Banner>}
+              <Field label={t("onboarding.code")} value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" />
+              <PrimaryButton
+                title={t("onboarding.verify")}
+                disabled={busy || otp.length !== 6}
+                onPress={() => run(async () => onSignedIn((await authApi.verifyOtp(phone, otp, locale)).token))}
+              />
+              <GhostButton title={t("onboarding.changeNumber")} onPress={() => setOtpSent(false)} />
+            </>
+          )}
+          {error && <Banner tone="error">{error}</Banner>}
+          <Muted>{t("onboarding.safety")}</Muted>
+          <Muted>{t("onboarding.ussd", { code: USSD_SHORT_CODE })}</Muted>
+        </Card>
+      )}
     </>
+  );
+}
+
+const REGIONS: Region[] = ["CENTRAL", "WEST", "EAST", "SOUTHERN", "NORTH"];
+
+/** Planned markets: leave a number to get one SMS when Benki launches there. */
+function Waitlist({ onBack }: { onBack: () => void }) {
+  const { t, locale } = useI18n();
+  const regions = REGIONS.filter((r) => PLANNED_COUNTRIES.some((c) => c.region === r));
+  const [region, setRegion] = useState<Region>(regions[0]);
+  const inRegion = PLANNED_COUNTRIES.filter((c) => c.region === region);
+  const [countryCode, setCountryCode] = useState(inRegion[0].code);
+  const [phone, setPhone] = useState(COUNTRY_BY_CODE[countryCode].callingCode);
+  const [joined, setJoined] = useState(false);
+  const { busy, error, run } = useAction();
+  const country = t(`country.${countryCode}` as MessageKey);
+  const choose = (code: string) => {
+    setCountryCode(code);
+    setPhone(COUNTRY_BY_CODE[code].callingCode);
+    setJoined(false);
+  };
+  return (
+    <Card>
+      <Title>{t("waitlist.title", { country })}</Title>
+      <Muted>{t("waitlist.body")}</Muted>
+      <ChipSelect
+        value={region}
+        onChange={(r) => {
+          setRegion(r);
+          choose(PLANNED_COUNTRIES.find((c) => c.region === r)!.code);
+        }}
+        options={regions.map((r) => ({ id: r, label: t(`region.${r}`) }))}
+      />
+      <ChipSelect
+        label={t("onboarding.country")}
+        value={countryCode}
+        onChange={choose}
+        options={inRegion.map((c) => ({ id: c.code, label: `${c.flag} ${t(`country.${c.code}` as MessageKey)}` }))}
+      />
+      {joined ? (
+        <Banner tone="success">{t("waitlist.joined", { phone, country })}</Banner>
+      ) : (
+        <>
+          <Field label={t("onboarding.phone")} value={phone} onChangeText={(v) => setPhone(v.replace(/[^\d+]/g, ""))} keyboardType="phone-pad" />
+          <PrimaryButton
+            title={t("waitlist.join")}
+            disabled={busy || phone.length < 9}
+            onPress={() =>
+              run(async () => {
+                await authApi.joinWaitlist(phone, countryCode, locale);
+                setJoined(true);
+              })
+            }
+          />
+        </>
+      )}
+      {error && <Banner tone="error">{error}</Banner>}
+      <GhostButton title={t("waitlist.back")} onPress={onBack} />
+    </Card>
   );
 }
 

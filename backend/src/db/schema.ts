@@ -437,9 +437,37 @@ CREATE INDEX IF NOT EXISTS idx_requests_payer ON payment_requests (payer_id, sta
 CREATE INDEX IF NOT EXISTS idx_requests_requester ON payment_requests (requester_id, status);
 `;
 
+// Waitlist for planned markets, and an SMS outbox for messages to people who
+// aren't customers yet. Phone numbers are encrypted at rest; the HMAC only
+// deduplicates sign-ups.
+export const SCHEMA_V4 = `
+CREATE TABLE IF NOT EXISTS market_waitlist (
+  id TEXT PRIMARY KEY,
+  country_code TEXT NOT NULL,
+  phone_hash TEXT NOT NULL,
+  phone_enc TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  notified_at TEXT,
+  UNIQUE (country_code, phone_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_waitlist_country ON market_waitlist (country_code, notified_at);
+
+CREATE TABLE IF NOT EXISTS sms_outbox (
+  id TEXT PRIMARY KEY,
+  phone_enc TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  sent_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_sms_outbox_unsent ON sms_outbox (sent_at);
+`;
+
 /** Ordered, append-only list of migrations. Never edit one that has shipped. */
 export const MIGRATIONS: { version: number; sql: string }[] = [
   { version: 1, sql: SCHEMA_V1 },
   { version: 2, sql: SCHEMA_V2 },
   { version: 3, sql: SCHEMA_V3 },
+  { version: 4, sql: SCHEMA_V4 },
 ];

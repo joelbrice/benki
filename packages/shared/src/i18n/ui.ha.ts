@@ -90,6 +90,12 @@ export const uiHa: Record<keyof typeof uiEn, string> = {
   "onboarding.comingSoon": "Yana zuwa nan ba da daɗewa ba",
   "onboarding.comingSoonLine": "Yana zuwa a ƙarin ƙasashen Afirka {count}.",
   "onboarding.notLaunched": "Benki bai buɗe a {country} ba tukuna. Zaɓi ƙasar da ake da ita, ko ka dawo nan gaba.",
+  "waitlist.title": "Benki na zuwa {country}",
+  "waitlist.body": "Bar lambarka, za mu aiko maka saƙon SMS ɗaya idan Benki ya buɗe a can. Ba za mu yi amfani da ita don wani abu ba.",
+  "waitlist.join": "Sanar da ni",
+  "waitlist.joined": "Na gode! Za mu aika SMS zuwa {phone} idan Benki ya buɗe a {country}.",
+  "waitlist.cta": "Ƙasata ba ta buɗe ba tukuna",
+  "waitlist.back": "Koma shiga",
 
   "setPin.title": "Ƙirƙiri PIN ɗinka na ma'amala",
   "setPin.body": "Za ka shigar da wannan PIN don amincewa da kowane biya. Guji ranar haihuwa, lambobi masu maimaici (1111) ko jerin lambobi (1234).",

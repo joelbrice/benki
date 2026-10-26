@@ -113,6 +113,7 @@ export const serverWo: Record<keyof typeof serverEn, string> = {
   "err.pocketZone": "Denc dolaar walla euro amul ci réewi CEMAC ci yoonu weccitu xaalis bu BEAC.",
   "err.marketNotLaunched": "Benki ubbeegul ci {country} ba léegi. Dina ñëw ci kanam.",
   "err.eddCorridor": "Yónnee yu jëm walla jóge {country} dafay soxla dëggal bu mat (tolluwaay 2) ci sunuy yoon yu saytu bu xóot. Yéegal ci Sama xët.",
+  "err.marketLive": "Benki ubbi na ba noppi ci {country}. Ubbil sa kont.",
 
   "pay.completed": "{type}: {amount} jeex na.",
   "pay.sending": "Ñu ngi yónnee {amount} ci {name}. Dinañu la wax bu agsee.",
@@ -175,6 +176,7 @@ export const serverWo: Record<keyof typeof serverEn, string> = {
   "notif.disputeUpdate": "Xibaar ci sa wéttali bu {ref}: {resolution}",
   "notif.disputeUpheld": "Sa wéttali nangu nañu ko te fey bi delloo nañu ko.",
   "notif.pinChanged": "Sa PIN bu transaction soppiku na. Su dul yow, jokkool ak ñiy dimbali léegi.",
+  "notif.marketLaunched": "Benki ubbi na léegi ci {country}! Yebal appli bi walla nga bind {code} ci benn telefon ngir ubbi sa kont.",
 
   "ussd.notAvailable": "Benki nekkagul ci réseau bii.",
   "ussd.welcome": "Dalal ak jàmm ci Benki!",

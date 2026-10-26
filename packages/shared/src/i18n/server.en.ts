@@ -115,6 +115,7 @@ export const serverEn = {
   "err.pocketZone": "Holding dollars or euros isn't available in CEMAC countries under BEAC exchange rules.",
   "err.marketNotLaunched": "Benki isn't open in {country} yet. It's coming soon.",
   "err.eddCorridor": "Transfers involving {country} need full verification (Tier 2) under our enhanced due diligence rules. Upgrade in Profile.",
+  "err.marketLive": "Benki is already open in {country}. Create your account instead.",
 
   // --- Payment confirmations ---------------------------------------------------------
   "pay.completed": "{type}: {amount} completed.",
@@ -180,6 +181,7 @@ export const serverEn = {
   "notif.disputeUpdate": "Update on your dispute for {ref}: {resolution}",
   "notif.disputeUpheld": "Your dispute was upheld and the payment has been reversed.",
   "notif.pinChanged": "Your transaction PIN was changed. If this wasn't you, contact support immediately.",
+  "notif.marketLaunched": "Benki is now open in {country}! Download the app or dial {code} on any phone to open your account.",
 
   // --- USSD (keep lines short: 182 characters per screen) ------------------------------
   "ussd.notAvailable": "Benki isn't available on this network yet.",

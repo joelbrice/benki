@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi, ApiRequestError, staffLogin } from "../api";
 import { Banner, useAction } from "../ui/common";
-import { Approvals, Audit, Cases, Customers, Disputes, Ledger, Overview, Reconciliation, ReviewQueue, type StaffInfo } from "./sections";
+import { Approvals, Audit, Cases, Customers, Disputes, Ledger, Markets, Overview, Reconciliation, ReviewQueue, type StaffInfo } from "./sections";
 
 const TOKEN_KEY = "benki.staffToken";
-const SECTIONS = ["Overview", "Review queue", "Cases", "Customers", "Approvals", "Disputes", "Ledger", "Reconciliation", "Audit"] as const;
+const SECTIONS = ["Overview", "Review queue", "Cases", "Customers", "Approvals", "Disputes", "Markets", "Ledger", "Reconciliation", "Audit"] as const;
 type SectionName = (typeof SECTIONS)[number];
 
 function StaffLogin({ onLogin }: { onLogin: (token: string) => void }) {
@@ -112,6 +112,7 @@ export function AdminConsole() {
           {section === "Customers" && <Customers api={api} />}
           {section === "Approvals" && <Approvals api={api} staff={staff} />}
           {section === "Disputes" && <Disputes api={api} />}
+          {section === "Markets" && <Markets api={api} staff={staff} />}
           {section === "Ledger" && <Ledger api={api} />}
           {section === "Reconciliation" && <Reconciliation api={api} />}
           {section === "Audit" && <Audit api={api} />}

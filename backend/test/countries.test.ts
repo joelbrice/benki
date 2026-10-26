@@ -90,3 +90,54 @@ describe("planned markets", () => {
     expect(COUNTRY_BY_CODE.UG.launch).toBe("PLANNED");
   });
 });
+
+describe("expansion waitlist", () => {
+  const join = (h: ReturnType<typeof harness>, phoneNumber: string, countryCode: string, locale?: string) =>
+    request(h.app).post("/v1/markets/waitlist").send({ phoneNumber, countryCode, locale });
+
+  it("collects interest in planned markets without revealing who is already on the list", async () => {
+    const h = harness();
+    expect((await join(h, "+256700000101", "UG", "en")).status).toBe(202);
+    expect((await join(h, "+256700000101", "UG", "sw")).body).toEqual({ joined: true });
+    expect((await join(h, "+256700000102", "UG")).status).toBe(202);
+    expect((await join(h, "+243810000101", "UG")).status).toBe(400);
+    const live = await join(h, "+237670000101", "CM");
+    expect(live.status).toBe(400);
+    expect(live.body.error.code).toBeDefined();
+    // Numbers are stored encrypted; the list never holds them in clear.
+    const rows = h.ctx.db.prepare("SELECT phone_enc FROM market_waitlist").all() as { phone_enc: string }[];
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => !r.phone_enc.includes("256700000101"))).toBe(true);
+
+    const supervisor = await h.staff("supervisor");
+    const markets = (await supervisor("get", "/v1/admin/markets")).body.markets as { code: string; launch: string; waitlist: number; customers: number }[];
+    expect(markets).toHaveLength(54);
+    expect(markets[0]).toMatchObject({ code: "CM", launch: "LIVE" });
+    expect(markets.find((m) => m.code === "UG")).toMatchObject({ launch: "PLANNED", waitlist: 2 });
+  });
+
+  it("texts the waitlist once, in each person's language, after the market goes live", async () => {
+    const h = harness();
+    await join(h, "+256700000201", "UG", "sw");
+    await join(h, "+256700000202", "UG", "en");
+    const supervisor = await h.staff("supervisor");
+    const analyst = await h.staff("analyst");
+    expect((await supervisor("post", "/v1/admin/markets/UG/notify-waitlist")).status).toBe(400);
+
+    COUNTRY_BY_CODE.UG.launch = "LIVE"; // what launching the Uganda module does
+    try {
+      expect((await analyst("post", "/v1/admin/markets/UG/notify-waitlist")).status).toBe(403);
+      expect((await supervisor("post", "/v1/admin/markets/UG/notify-waitlist")).body).toEqual({ queued: 2 });
+      expect((await supervisor("post", "/v1/admin/markets/UG/notify-waitlist")).body).toEqual({ queued: 0 });
+    } finally {
+      COUNTRY_BY_CODE.UG.launch = "PLANNED";
+    }
+    const sms = h.ctx.db.prepare("SELECT message FROM sms_outbox ORDER BY message").all() as { message: string }[];
+    expect(sms.map((s) => s.message)).toEqual([
+      "Benki is now open in Uganda! Download the app or dial *384*236# on any phone to open your account.",
+      "Benki sasa imefunguliwa nchini Uganda! Pakua programu au piga *384*236# kwenye simu yoyote kufungua akaunti yako.",
+    ]);
+    const audit = h.ctx.db.prepare("SELECT action FROM audit_log WHERE action = 'MARKET_WAITLIST_NOTIFIED'").all();
+    expect(audit).toHaveLength(2);
+  });
+});

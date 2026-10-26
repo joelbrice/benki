@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
+  COUNTRY_BY_CODE,
   formatAmount,
   type AdminCase,
+  type AdminMarket,
   type AdminDashboard,
   type AdminDispute,
   type AdminTransaction,
@@ -715,6 +717,142 @@ export function Ledger({ api }: { api: AdminApi }) {
                     <td>{a.kind.replace(/_/g, " ")}</td>
                     <td>{a.currency}</td>
                     <td>{formatAmount(a.balanceMinor, a.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
+// --- Markets ------------------------------------------------------------------------
+
+const REGION_LABEL: Record<string, string> = { CENTRAL: "Central", WEST: "West", EAST: "East", SOUTHERN: "Southern", NORTH: "North" };
+
+/**
+ * Every African market: launch stage, customers and waitlist demand. Planned
+ * markets can be sorted by demand to prioritise the next launch; once a market
+ * is switched to LIVE, a supervisor texts its waitlist (once).
+ */
+export function Markets({ api, staff }: { api: AdminApi; staff: StaffInfo }) {
+  const { data, error, reload } = useLoad(() => api.markets(), [api]);
+  const [filter, setFilter] = useState<"ALL" | "LIVE" | "PLANNED">("ALL");
+  const [byDemand, setByDemand] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const action = useAction();
+  const canNotify = staff.role === "SUPERVISOR" || staff.role === "ADMIN";
+
+  const markets: AdminMarket[] = (data?.markets ?? []).filter((m) => filter === "ALL" || m.launch === filter);
+  if (byDemand) markets.sort((a, b) => b.waitlist - a.waitlist);
+  const all = data?.markets ?? [];
+  const live = all.filter((m) => m.launch === "LIVE");
+  const waiting = all.reduce((n, m) => n + m.waitlist, 0);
+  const topDemand = all.filter((m) => m.launch === "PLANNED" && m.waitlist > 0).sort((a, b) => b.waitlist - a.waitlist).slice(0, 3);
+
+  return (
+    <Section
+      title="Markets"
+      actions={
+        <button className="small ghost" onClick={() => reload()}>
+          Refresh
+        </button>
+      }
+    >
+      <p className="muted small">
+        Each country is its own module in <code>packages/shared/src/countries/</code>. Launching a planned market means completing its module and switching it to LIVE — see docs/MARKET_EXPANSION.md.
+      </p>
+      {error && <Banner tone="error">{error}</Banner>}
+      {action.error && <Banner tone="error">{action.error}</Banner>}
+      {notice && <Banner tone="success">{notice}</Banner>}
+      {data && (
+        <>
+          <div className="grid">
+            {(
+              [
+                ["Live markets", `${live.length} of ${all.length}`],
+                ["Customers in live markets", live.reduce((n, m) => n + m.customers, 0)],
+                ["People on waitlists", waiting],
+                ["Most requested next", topDemand.map((m) => `${m.name} (${m.waitlist})`).join(", ") || "—"],
+              ] as [string, string | number][]
+            ).map(([k, v]) => (
+              <div key={k} className="subcard stat">
+                <span className="muted small">{k}</span>
+                <strong style={{ fontSize: typeof v === "number" ? "1.4rem" : "1rem" }}>{v}</strong>
+              </div>
+            ))}
+          </div>
+          <div className="row">
+            {(["ALL", "LIVE", "PLANNED"] as const).map((f) => (
+              <button key={f} className={`small ${filter === f ? "" : "ghost"}`} aria-pressed={filter === f} onClick={() => setFilter(f)}>
+                {f === "ALL" ? "All" : f === "LIVE" ? "Live" : "Planned"}
+              </button>
+            ))}
+            <label className="inline small">
+              <input type="checkbox" checked={byDemand} onChange={(e) => setByDemand(e.target.checked)} /> Sort by waitlist demand
+            </label>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Country</th>
+                  <th>Stage</th>
+                  <th>Region</th>
+                  <th>Currency</th>
+                  <th>Supervisor</th>
+                  <th>Customers</th>
+                  <th>Waitlist</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {markets.map((m) => (
+                  <tr key={m.code}>
+                    <td>
+                      {COUNTRY_BY_CODE[m.code]?.flag} {m.name}
+                      {m.enhancedDueDiligence && (
+                        <>
+                          {" "}
+                          <span className="badge danger" title="Conflict-affected jurisdiction: Tier 2 on every corridor">
+                            EDD
+                          </span>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${m.launch === "LIVE" ? "" : "neutral"}`}>{m.launch === "LIVE" ? "Live" : "Planned"}</span>
+                    </td>
+                    <td>{REGION_LABEL[m.region] ?? m.region}</td>
+                    <td>
+                      {m.currency}
+                      {m.zone ? ` · ${m.zone}` : ""}
+                    </td>
+                    <td className="small">{m.regulator}</td>
+                    <td>{m.customers}</td>
+                    <td>
+                      {m.waitlist}
+                      {m.waitlistPending > 0 && m.waitlistPending !== m.waitlist ? ` (${m.waitlistPending} not yet told)` : ""}
+                    </td>
+                    <td>
+                      {m.launch === "LIVE" && m.waitlistPending > 0 && canNotify && (
+                        <button
+                          className="small secondary"
+                          disabled={action.busy}
+                          onClick={() =>
+                            action.run(async () => {
+                              const r = await api.notifyWaitlist(m.code);
+                              setNotice(`Queued ${r.queued} launch SMS for ${m.name}.`);
+                              await reload();
+                            })
+                          }
+                        >
+                          Text waitlist ({m.waitlistPending})
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
